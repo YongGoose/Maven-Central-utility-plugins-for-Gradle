@@ -1,0 +1,22 @@
+name: pull_request
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          ./gradlew build
+          ./gradlew -p tests/jvm zipAggregation --configuration-cache
+          ./gradlew -p tests/jvm build
+          ./gradlew -p tests/kmp publishAggregationToCentralPortal --configuration-cache
+          ./gradlew -p tests/kmp build
