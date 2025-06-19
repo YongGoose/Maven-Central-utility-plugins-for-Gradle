@@ -14,7 +14,6 @@ open class OrganizationDefaultsExtension {
 class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
         val ext = settings.extensions.create("organizationDefaults", OrganizationDefaultsExtension::class.java)
-
         settings.gradle.sharedServices.registerIfAbsent(
             "orgDefaults",
             OrganizationDefaultsService::class.java

@@ -11,32 +11,14 @@ open class ProjectPomExtension {
 class OrganizationDefaultsProjectPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val ext = project.extensions.create("projectPom", ProjectPomExtension::class.java)
-
         project.afterEvaluate {
-            // Try to get organization defaults from shared service first
-            val orgDefaultsService = project.gradle.sharedServices.registrations
-                .findByName("orgDefaults")?.service?.get() as? OrganizationDefaultsService
 
-            // Create organization defaults object from service or extension
-            val orgDefaults = if (orgDefaultsService != null) {
-                val defaults = orgDefaultsService.getDefaults()
-                OrganizationDefaults(
-                    name = defaults.name,
-                    url = defaults.url,
-                    license = defaults.license,
-                    developers = defaults.developers
-                )
-            } else {
-                // Fallback to the old implementation
-                OrganizationDefaults(
-                    name = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.name,
-                    url = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.url,
-                    license = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.license,
-                    developers = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.developers ?: emptyList()
-                )
-            }
-
-            // Project-specific POM configuration
+            val orgDefaults = OrganizationDefaults(
+                name = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.name,
+                url = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.url,
+                license = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.license,
+                developers = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.developers ?: emptyList()
+            )
             val projectPom = OrganizationDefaults(
                 name = ext.name,
                 url = ext.url,
@@ -44,7 +26,6 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                 developers = ext.developers
             )
 
-            // Merge organization defaults with project-specific settings
             val merged = orgDefaults.merge(projectPom)
             project.extensions.add("effectivePom", merged)
         }
