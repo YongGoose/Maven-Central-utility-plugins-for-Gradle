@@ -1,5 +1,7 @@
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm")
+    `java-gradle-plugin`
+    `kotlin-dsl`
 }
 
 group = "com.example"
@@ -11,6 +13,9 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    implementation(gradleApi())
+    implementation(gradleKotlinDsl())
+    implementation(project(":core"))
 }
 
 tasks.test {
@@ -18,4 +23,13 @@ tasks.test {
 }
 kotlin {
     jvmToolchain(17)
+}
+
+gradlePlugin {
+    plugins {
+        create("organizationDefaults") {
+            id = "com.your.organization-defaults"
+            implementationClass = "OrganizationDefaultsSettingsPlugin"
+        }
+    }
 }
