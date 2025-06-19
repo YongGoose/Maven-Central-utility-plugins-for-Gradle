@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("jvm") version "1.9.23" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
 }
 
 group = "com.example"
