@@ -4,9 +4,6 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "com.example"
-version = "1.0-SNAPSHOT"
-
 repositories {
     mavenCentral()
 }
@@ -28,8 +25,8 @@ kotlin {
 gradlePlugin {
     plugins {
         create("organizationDefaults") {
-            id = "com.your.organization-defaults"
-            implementationClass = "OrganizationDefaultsSettingsPlugin"
+            id = "io.github.YongGoose.organization-defaults"
+            implementationClass = "io.github.YongGoose.OrganizationDefaultsSettingsPlugin"
         }
     }
 }

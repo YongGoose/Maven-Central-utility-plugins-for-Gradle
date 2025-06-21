@@ -4,9 +4,6 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "com.example"
-version = "1.0-SNAPSHOT"
-
 repositories {
     mavenCentral()
 }
@@ -26,9 +23,9 @@ kotlin {
 
 gradlePlugin {
     plugins {
-        create("organizationDefaults") {
-            id = "com.your.organization-defaults"
-            implementationClass = "PomUtils"
+        create("pomUtils") {
+            id = "io.github.YongGoose.pom-utils"
+            implementationClass = "io.github.YongGoose.PomUtilsPlugin"
         }
     }
 }
