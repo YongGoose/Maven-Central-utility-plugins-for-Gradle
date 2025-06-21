@@ -7,7 +7,7 @@ object PomUtils {
             name = props["pom.name"] as? String,
             url = props["pom.url"] as? String,
             license = props["pom.license"] as? String,
-            developers = (props["pom.developers"] as? String)?.split(",") ?: emptyList()
+            developers = (props["pom.developers"] as? String)?.split(",")?.map { it.trim() } ?: emptyList()
         )
     }
 }
