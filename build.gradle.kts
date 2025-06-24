@@ -5,12 +5,12 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
 }
 
-group = "com.example"
+group = "io.github.YongGoose"
 version = "1.0-SNAPSHOT"
 
 allprojects {
-    group = "com.example"
-    version = "1.0-SNAPSHOT"
+    group = "io.github.YongGoose"
+    version = "0.1.0-SNAPSHOT"
 
     repositories {
         mavenCentral()

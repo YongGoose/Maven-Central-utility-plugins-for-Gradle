@@ -1,9 +1,8 @@
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm")
+    `java-gradle-plugin`
+    `kotlin-dsl`
 }
-
-group = "com.example"
-version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -11,6 +10,8 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    implementation(gradleApi())
+    implementation(gradleKotlinDsl())
 }
 
 tasks.test {
@@ -18,4 +19,13 @@ tasks.test {
 }
 kotlin {
     jvmToolchain(17)
+}
+
+gradlePlugin {
+    plugins {
+        create("pomUtils") {
+            id = "io.github.YongGoose.pom-utils"
+            implementationClass = "io.github.YongGoose.PomUtilsPlugin"
+        }
+    }
 }
