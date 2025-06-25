@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm")
-    `java-gradle-plugin`
+    id("java-gradle-plugin")
     `kotlin-dsl`
 }
 
@@ -9,7 +9,6 @@ repositories {
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
     implementation(gradleApi())
     implementation(gradleKotlinDsl())
 }
