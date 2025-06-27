@@ -23,13 +23,13 @@ kotlin {
 
 gradlePlugin {
     plugins {
-        create("organizationDefaults") {
+      /*  create("organizationDefaults") {
             id = "io.github.YongGoose.organization-defaults"
-            implementationClass = "io.github.YongGoose.OrganizationDefaultsSettingsPlugin"
-        }
+            implementationClass = "io.github.YongGoose.OrganizationDefaultsPlugin"
+        }*/
         create("organizationDefaultsProject") {
-            id = "io.github.YongGoose.organization-defaults-project"
-            implementationClass = "io.github.YongGoose.OrganizationDefaultsProjectPlugin"
+            id = "io.github.yonggoose.organization-defaults-project"
+            implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsProjectPlugin"
         }
     }
 }

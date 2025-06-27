@@ -23,30 +23,31 @@ class OrganizationDefaultsFunctionalTest {
                 }
             }
             
-            plugins {
-                id("io.github.YongGoose.organization-defaults")
-            }
-
             rootProject.name = "root"
             include("sub")
 
-            organizationDefaults {
+            
+            """.trimIndent()
+        )
+
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+             plugins {
+                id("io.github.yonggoose.organization-defaults-project")
+             }
+                
+             organizationDefaults {
                 name       = "Test Organization"
                 url        = "https://example.org"
                 license    = "MIT"
                 developers = listOf("Developer1", "Developer2")
             }
-            """.trimIndent()
-        )
-
-        projectDir.resolve("build.gradle.kts").toFile().writeText("")
+            """.trimIndent())
 
         val subDir = projectDir.resolve("sub").toFile().apply { mkdirs() }
         subDir.resolve("build.gradle.kts").writeText(
             """
-            plugins {
-                id("io.github.YongGoose.organization-defaults-project")
-            }
+            
 
             projectPom {
                 name = "Subproject"

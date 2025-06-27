@@ -1,3 +1,6 @@
+package io.github.yonggoose.organizationdefaults
+
+import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
