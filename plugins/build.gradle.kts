@@ -27,5 +27,10 @@ gradlePlugin {
             id = "io.github.yonggoose.organization-defaults-project"
             implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsProjectPlugin"
         }
+
+        create("organizationDefaultsSetting") {
+            id = "io.github.yonggoose.organization-defaults-setting"
+            implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsSettingsPlugin"
+        }
     }
 }
