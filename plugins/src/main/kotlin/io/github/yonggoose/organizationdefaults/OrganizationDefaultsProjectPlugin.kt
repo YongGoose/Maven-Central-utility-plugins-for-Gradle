@@ -4,7 +4,7 @@ import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
-open class ProjectPomExtension {
+open class PomDefaultsExtension {
     var name: String? = null
     var url: String? = null
     var license: String? = null
@@ -13,24 +13,21 @@ open class ProjectPomExtension {
 
 class OrganizationDefaultsProjectPlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        val projectPomExt = project.extensions.create("projectPom", ProjectPomExtension::class.java)
+        val projectPomExt = project.extensions.create("projectPom", PomDefaultsExtension::class.java)
 
-        open class EffectivePomExtension {
-            var name: String? = null
-            var url: String? = null
-            var license: String? = null
-            var developers: List<String> = emptyList()
+        if (project == project.rootProject) {
+            project.extensions.create("rootProjectPom", PomDefaultsExtension::class.java)
         }
 
-        val effectivePomExt = project.extensions.create("effectivePom", EffectivePomExtension::class.java)
-
         project.afterEvaluate {
+            val organizationDefaultExtension = project.rootProject.extensions.findByName("rootProjectPom") as? PomDefaultsExtension
+                ?: PomDefaultsExtension()
+
             val orgDefaults = OrganizationDefaults(
-                name = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.name,
-                url = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.url,
-                license = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.license,
-                developers = project.rootProject.extensions.findByType(OrganizationDefaultsExtension::class.java)?.developers
-                    ?: emptyList()
+                name = organizationDefaultExtension.name,
+                url = organizationDefaultExtension.url,
+                license = organizationDefaultExtension.license,
+                developers = organizationDefaultExtension.developers
             )
 
             val projectPom = OrganizationDefaults(
@@ -41,12 +38,6 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
             )
 
             val merged = orgDefaults.merge(projectPom)
-
-            effectivePomExt.name = merged.name
-            effectivePomExt.url = merged.url
-            effectivePomExt.license = merged.license
-            effectivePomExt.developers = merged.developers
-
             project.extensions.extraProperties.set("mergedDefaults", merged)
         }
     }

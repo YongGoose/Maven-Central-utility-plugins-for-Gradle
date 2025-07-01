@@ -19,12 +19,3 @@ tasks.test {
 kotlin {
     jvmToolchain(17)
 }
-
-gradlePlugin {
-    plugins {
-        create("pomUtils") {
-            id = "io.github.YongGoose.pom-utils"
-            implementationClass = "io.github.YongGoose.PomUtilsPlugin"
-        }
-    }
-}
