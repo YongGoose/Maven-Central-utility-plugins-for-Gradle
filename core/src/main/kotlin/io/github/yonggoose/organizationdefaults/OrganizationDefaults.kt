@@ -1,3 +1,5 @@
+package io.github.yonggoose.organizationdefaults
+
 data class OrganizationDefaults(
     val name: String? = null,
     val url: String? = null,

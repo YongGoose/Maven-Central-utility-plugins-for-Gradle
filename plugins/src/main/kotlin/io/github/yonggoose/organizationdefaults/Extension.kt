@@ -1,3 +1,5 @@
+package io.github.yonggoose.organizationdefaults
+
 import org.gradle.api.Plugin
 import org.gradle.api.initialization.Settings
 import org.gradle.api.provider.Property

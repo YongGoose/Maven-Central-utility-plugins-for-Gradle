@@ -5,11 +5,11 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
 }
 
-group = "io.github.YongGoose"
+group = "io.github.yongoose"
 version = "1.0-SNAPSHOT"
 
 allprojects {
-    group = "io.github.YongGoose"
+    group = "io.github.yonggoose"
     version = "0.1.0-SNAPSHOT"
 
     repositories {
@@ -23,8 +23,7 @@ subprojects {
 
     dependencies {
         "implementation"(kotlin("stdlib"))
-        "testImplementation"("org.junit.jupiter:junit-jupiter-api:5.10.2")
-        "testRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+        "testImplementation"(kotlin("test"))
     }
 
     tasks.withType<Test> {

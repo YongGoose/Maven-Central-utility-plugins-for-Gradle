@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm")
-    `java-gradle-plugin`
+    id("java-gradle-plugin")
     `kotlin-dsl`
 }
 
@@ -9,7 +9,6 @@ repositories {
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
     implementation(gradleApi())
     implementation(gradleKotlinDsl())
     implementation(project(":core"))
@@ -24,9 +23,9 @@ kotlin {
 
 gradlePlugin {
     plugins {
-        create("organizationDefaults") {
-            id = "io.github.YongGoose.organization-defaults"
-            implementationClass = "io.github.YongGoose.OrganizationDefaultsSettingsPlugin"
+        create("organizationDefaultsProject") {
+            id = "io.github.yonggoose.organization-defaults-project"
+            implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsProjectPlugin"
         }
     }
 }
