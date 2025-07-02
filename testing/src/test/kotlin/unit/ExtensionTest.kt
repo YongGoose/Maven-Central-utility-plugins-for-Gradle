@@ -55,10 +55,10 @@ class ExtensionTest {
                     
                     val defaults = service.getDefaults()
                     
-                    assert(defaults.name == "MyCompany")
-                    assert(defaults.url == "https://mycompany.com")
-                    assert(defaults.license == "MIT")
-                    assert(defaults.developers == listOf("Alice", "Bob"))
+                    assertEquals("MyCompany", defaults.name)
+                    assertEquals("https://mycompany.com", defaults.url)
+                    assertEquals("MIT", defaults.license)
+                    assertEquals(listOf("Alice", "Bob"), defaults.developers)
                 }
             }
         """.trimIndent()
