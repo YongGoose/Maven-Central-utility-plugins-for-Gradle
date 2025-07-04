@@ -1,14 +1,45 @@
 package io.github.yonggoose.organizationdefaults
 
-import io.github.yonggoose.organizationdefaults.OrganizationDefaults
+import io.github.yonggoose.organizationdefaults.spec.DevelopersContainer
+import io.github.yonggoose.organizationdefaults.spec.MailingListsContainer
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 open class PomDefaultsExtension {
+    var groupId: String? = null
+    var artifactId: String? = null
+    var version: String? = null
+
     var name: String? = null
+    var description: String? = null
     var url: String? = null
+    var inceptionYear: String? = null
     var license: String? = null
-    var developers: List<String> = emptyList()
+
+    var organization: Organization? = null
+
+    private val developersContainer = DevelopersContainer()
+    private val mailingListsContainer = MailingListsContainer()
+
+    var developers: List<Developer> = emptyList()
+        get() = developersContainer.getDevelopers()
+        private set
+
+    var mailingLists: List<MailingList> = emptyList()
+        get() = mailingListsContainer.getMailingLists()
+        private set
+
+    var issueManagement: IssueManagement? = null
+
+    var scm: Scm? = null
+
+    fun developers(action: DevelopersContainer.() -> Unit) {
+        developersContainer.action()
+    }
+
+    fun mailingLists(action: MailingListsContainer.() -> Unit) {
+        mailingListsContainer.action()
+    }
 }
 
 class OrganizationDefaultsProjectPlugin : Plugin<Project> {
@@ -24,17 +55,47 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                 ?: PomDefaultsExtension()
 
             val orgDefaults = OrganizationDefaults(
+                groupId = organizationDefaultExtension.groupId,
+                artifactId = organizationDefaultExtension.artifactId,
+                version = organizationDefaultExtension.version,
+
                 name = organizationDefaultExtension.name,
+                description = organizationDefaultExtension.description,
                 url = organizationDefaultExtension.url,
+                inceptionYear = organizationDefaultExtension.inceptionYear,
                 license = organizationDefaultExtension.license,
-                developers = organizationDefaultExtension.developers
+
+                organization = organizationDefaultExtension.organization,
+
+                developers = organizationDefaultExtension.developers,
+
+                issueManagement = organizationDefaultExtension.issueManagement,
+
+                mailingLists = organizationDefaultExtension.mailingLists,
+
+                scm = organizationDefaultExtension.scm
             )
 
             val projectPom = OrganizationDefaults(
+                groupId = projectPomExt.groupId,
+                artifactId = projectPomExt.artifactId,
+                version = projectPomExt.version,
+
                 name = projectPomExt.name,
+                description = projectPomExt.description,
                 url = projectPomExt.url,
+                inceptionYear = projectPomExt.inceptionYear,
                 license = projectPomExt.license,
-                developers = projectPomExt.developers
+
+                organization = projectPomExt.organization,
+
+                developers = projectPomExt.developers,
+
+                issueManagement = projectPomExt.issueManagement,
+
+                mailingLists = projectPomExt.mailingLists,
+
+                scm = projectPomExt.scm
             )
 
             val merged = orgDefaults.merge(projectPom)
