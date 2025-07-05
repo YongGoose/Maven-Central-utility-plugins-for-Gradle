@@ -1,7 +1,10 @@
 package io.github.yonggoose.organizationdefaults
 
-import io.github.yonggoose.organizationdefaults.spec.DevelopersContainer
-import io.github.yonggoose.organizationdefaults.spec.MailingListsContainer
+import io.github.yonggoose.organizationdefaults.container.DevelopersContainer
+import io.github.yonggoose.organizationdefaults.container.IssueManagementContainer
+import io.github.yonggoose.organizationdefaults.container.MailingListsContainer
+import io.github.yonggoose.organizationdefaults.container.OrganizationContainer
+import io.github.yonggoose.organizationdefaults.container.ScmContainer
 import org.gradle.api.Plugin
 import org.gradle.api.initialization.Settings
 import org.gradle.api.provider.ListProperty
@@ -20,10 +23,11 @@ open class OrganizationDefaultsExtension {
     var inceptionYear: String? = null
     var license: String? = null
 
-    var organization: Organization? = null
-
     private val developersContainer = DevelopersContainer()
     private val mailingListsContainer = MailingListsContainer()
+    private val issueManageMentContainer = IssueManagementContainer()
+    private val organizationContainer = OrganizationContainer()
+    private val scmContainer = ScmContainer()
 
     var developers: List<Developer> = emptyList()
         get() = developersContainer.getDevelopers()
@@ -34,8 +38,16 @@ open class OrganizationDefaultsExtension {
         private set
 
     var issueManagement: IssueManagement? = null
+        get() = issueManageMentContainer.getIssueManagement()
+        private set
+
+    var organization: Organization? = null
+        get() = organizationContainer.getOrganization()
+        private set
 
     var scm: Scm? = null
+        get() = scmContainer.getScm()
+        private set
 
     fun developers(action: DevelopersContainer.() -> Unit) {
         developersContainer.action()
@@ -43,6 +55,18 @@ open class OrganizationDefaultsExtension {
 
     fun mailingLists(action: MailingListsContainer.() -> Unit) {
         mailingListsContainer.action()
+    }
+
+    fun issueManagement(action: IssueManagementContainer.() -> Unit) {
+        issueManageMentContainer.action()
+    }
+
+    fun organization(action: OrganizationContainer.() -> Unit) {
+        organizationContainer.action()
+    }
+
+    fun scm(action: ScmContainer.() -> Unit) {
+        scmContainer.action()
     }
 }
 
@@ -57,19 +81,15 @@ interface OrganizationDefaultsParameters : BuildServiceParameters {
     val inceptionYear: Property<String>
     val license: Property<String>
 
-    val organizationName: Property<String>
-    val organizationUrl: Property<String>
-
     val developers: ListProperty<Developer>
+
     val mailingLists: ListProperty<MailingList>
 
-    val issueManagementSystem: Property<String>
-    val issueManagementUrl: Property<String>
+    val organization: Property<Organization>
 
-    val scmConnection: Property<String>
-    val scmDeveloperConnection: Property<String>
-    val scmTag: Property<String>
-    val scmUrl: Property<String>
+    val issueManagement: Property<IssueManagement>
+
+    val scm: Property<Scm>
 }
 
 abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsParameters> {
@@ -84,11 +104,6 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
             url = parameters.url.orNull
             inceptionYear = parameters.inceptionYear.orNull
             license = parameters.license.orNull
-
-            organization = Organization(
-                name = parameters.organizationName.orNull,
-                url = parameters.organizationUrl.orNull
-            )
 
             parameters.developers.orNull?.let { devs ->
                 developers(action = {
@@ -120,17 +135,40 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
                 })
             }
 
-            issueManagement = IssueManagement(
-                system = parameters.issueManagementSystem.orNull,
-                url = parameters.issueManagementUrl.orNull
-            )
+            parameters.organization.orNull?.let { org ->
+                organization(
+                    action = {
+                        organization {
+                            name = org.name
+                            url = org.url
+                        }
+                    }
+                )
 
-            scm = Scm(
-                connection = parameters.scmConnection.orNull,
-                developerConnection = parameters.scmDeveloperConnection.orNull,
-                tag = parameters.scmTag.orNull,
-                url = parameters.scmUrl.orNull
-            )
+            }
+
+            parameters.issueManagement.orNull?.let { issue ->
+                issueManagement(
+                    action = {
+                        issueManagement {
+                            system = issue.system
+                            url = issue.url
+                        }
+                    }
+                )
+            }
+
+            parameters.scm.orNull?.let { scm ->
+                scm(
+                    action = {
+                        scm {
+                            connection = scm.connection
+                            developerConnection = scm.developerConnection
+                            url = scm.url
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -154,18 +192,14 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
             parameters.license.set(ext.license ?: "")
 
             parameters.developers.set(ext.developers)
+
             parameters.mailingLists.set(ext.mailingLists)
 
-            parameters.issueManagementSystem.set(ext.issueManagement?.system ?: "")
-            parameters.issueManagementUrl.set(ext.issueManagement?.url ?: "")
+            parameters.organization.set(ext.organization ?: Organization())
 
-            parameters.organizationName.set(ext.organization?.name ?: "")
-            parameters.organizationUrl.set(ext.organization?.url ?: "")
+            parameters.issueManagement.set(ext.issueManagement ?: IssueManagement())
 
-            parameters.scmConnection.set(ext.scm?.connection ?: "")
-            parameters.scmDeveloperConnection.set(ext.scm?.developerConnection ?: "")
-            parameters.scmTag.set(ext.scm?.tag ?: "")
-            parameters.scmUrl.set(ext.scm?.url ?: "")
+            parameters.scm.set(ext.scm ?: Scm())
         }
     }
 }

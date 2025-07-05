@@ -1,4 +1,4 @@
-package io.github.yonggoose.organizationdefaults.spec
+package io.github.yonggoose.organizationdefaults.container
 
 import io.github.yonggoose.organizationdefaults.MailingList
 

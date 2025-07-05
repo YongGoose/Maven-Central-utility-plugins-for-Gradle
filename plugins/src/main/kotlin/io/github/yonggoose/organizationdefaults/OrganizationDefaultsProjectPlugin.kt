@@ -1,7 +1,10 @@
 package io.github.yonggoose.organizationdefaults
 
-import io.github.yonggoose.organizationdefaults.spec.DevelopersContainer
-import io.github.yonggoose.organizationdefaults.spec.MailingListsContainer
+import io.github.yonggoose.organizationdefaults.container.DevelopersContainer
+import io.github.yonggoose.organizationdefaults.container.IssueManagementContainer
+import io.github.yonggoose.organizationdefaults.container.MailingListsContainer
+import io.github.yonggoose.organizationdefaults.container.OrganizationContainer
+import io.github.yonggoose.organizationdefaults.container.ScmContainer
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -16,10 +19,11 @@ open class PomDefaultsExtension {
     var inceptionYear: String? = null
     var license: String? = null
 
-    var organization: Organization? = null
-
     private val developersContainer = DevelopersContainer()
     private val mailingListsContainer = MailingListsContainer()
+    private val issueManagementContainer = IssueManagementContainer()
+    private val organizationContainer = OrganizationContainer()
+    private val scmContainer = ScmContainer()
 
     var developers: List<Developer> = emptyList()
         get() = developersContainer.getDevelopers()
@@ -30,8 +34,16 @@ open class PomDefaultsExtension {
         private set
 
     var issueManagement: IssueManagement? = null
+        get() = issueManagementContainer.getIssueManagement()
+        private set
+
+    var organization: Organization? = null
+        get() = organizationContainer.getOrganization()
+        private set
 
     var scm: Scm? = null
+        get() = scmContainer.getScm()
+        private set
 
     fun developers(action: DevelopersContainer.() -> Unit) {
         developersContainer.action()
@@ -39,6 +51,18 @@ open class PomDefaultsExtension {
 
     fun mailingLists(action: MailingListsContainer.() -> Unit) {
         mailingListsContainer.action()
+    }
+
+    fun issueManagement(action: IssueManagementContainer.() -> Unit) {
+        issueManagementContainer.action()
+    }
+
+    fun organization(action: OrganizationContainer.() -> Unit) {
+        organizationContainer.action()
+    }
+
+    fun scm(action: ScmContainer.() -> Unit) {
+        scmContainer.action()
     }
 }
 
@@ -87,13 +111,13 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                 inceptionYear = projectPomExt.inceptionYear,
                 license = projectPomExt.license,
 
-                organization = projectPomExt.organization,
-
                 developers = projectPomExt.developers,
 
-                issueManagement = projectPomExt.issueManagement,
-
                 mailingLists = projectPomExt.mailingLists,
+
+                organization = projectPomExt.organization,
+
+                issueManagement = projectPomExt.issueManagement,
 
                 scm = projectPomExt.scm
             )

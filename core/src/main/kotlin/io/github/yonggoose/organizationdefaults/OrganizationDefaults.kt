@@ -72,6 +72,5 @@ data class MailingList(
 data class Scm(
     val connection: String? = null,
     val developerConnection: String? = null,
-    val tag: String? = null,
     val url: String? = null
 )
