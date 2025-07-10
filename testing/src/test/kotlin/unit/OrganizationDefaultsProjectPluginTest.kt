@@ -44,7 +44,16 @@ class OrganizationDefaultsProjectPluginTest {
                 description = "Organization defaults plugin test"
                 url = "https://example.org"
                 inceptionYear = "2023"
-                license = "MIT"
+                
+                licenses {
+                    license {
+                        licenseType = "MIT"
+                    }
+                    
+                    license {
+                        licenseType = "Apache-2.0"
+                    }
+                }
                 
                 organization {
                     name = "YongGoose"
@@ -114,7 +123,10 @@ class OrganizationDefaultsProjectPluginTest {
                     check(pom.description == "Organization defaults plugin test")
                     check(pom.url == "https://example.org")
                     check(pom.inceptionYear == "2023")
-                    check(pom.license == "MIT")
+                    
+                    check(pom.licenses.size == 2)
+                    check(pom.licenses[0].licenseType == "MIT")
+                    check(pom.licenses[1].licenseType == "Apache-2.0")
 //                    
 //                    check(pom.organization?.name == "YongGoose")
 //                    check(pom.organization?.url == "https://github.com/YongGoose")

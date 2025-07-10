@@ -9,7 +9,8 @@ data class OrganizationDefaults(
     val description: String? = null,
     val url: String? = null,
     val inceptionYear: String? = null,
-    val license: String? = null,
+
+    val licenses: List<License> = emptyList(),
 
     val organization: Organization? = null,
 
@@ -31,7 +32,7 @@ data class OrganizationDefaults(
             description = override.description ?: this.description,
             url = override.url ?: this.url,
             inceptionYear = override.inceptionYear ?: this.inceptionYear,
-            license = override.license ?: this.license,
+            licenses = override.licenses.ifEmpty { this.licenses },
             organization = override.organization ?: this.organization,
             developers = override.developers.ifEmpty { this.developers },
             issueManagement = override.issueManagement ?: this.issueManagement,
@@ -40,6 +41,10 @@ data class OrganizationDefaults(
         )
     }
 }
+
+data class License(
+    var licenseType: String? = null
+)
 
 data class Organization(
     val name: String? = null,

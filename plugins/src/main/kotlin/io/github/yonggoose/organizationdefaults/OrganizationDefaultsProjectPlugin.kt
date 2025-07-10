@@ -2,6 +2,7 @@ package io.github.yonggoose.organizationdefaults
 
 import io.github.yonggoose.organizationdefaults.container.DevelopersContainer
 import io.github.yonggoose.organizationdefaults.container.IssueManagementContainer
+import io.github.yonggoose.organizationdefaults.container.LicenseContainer
 import io.github.yonggoose.organizationdefaults.container.MailingListsContainer
 import io.github.yonggoose.organizationdefaults.container.OrganizationContainer
 import io.github.yonggoose.organizationdefaults.container.ScmContainer
@@ -17,13 +18,17 @@ open class PomDefaultsExtension {
     var description: String? = null
     var url: String? = null
     var inceptionYear: String? = null
-    var license: String? = null
 
+    private val licenseContainer = LicenseContainer()
     private val developersContainer = DevelopersContainer()
     private val mailingListsContainer = MailingListsContainer()
     private val issueManagementContainer = IssueManagementContainer()
     private val organizationContainer = OrganizationContainer()
     private val scmContainer = ScmContainer()
+
+    var licenses: List<License> = emptyList()
+        get() = licenseContainer.getLicenses()
+        private set
 
     var developers: List<Developer> = emptyList()
         get() = developersContainer.getDevelopers()
@@ -44,6 +49,10 @@ open class PomDefaultsExtension {
     var scm: Scm? = null
         get() = scmContainer.getScm()
         private set
+
+    fun licenses(action: LicenseContainer.() -> Unit) {
+        licenseContainer.action()
+    }
 
     fun developers(action: DevelopersContainer.() -> Unit) {
         developersContainer.action()
@@ -87,7 +96,8 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                 description = organizationDefaultExtension.description,
                 url = organizationDefaultExtension.url,
                 inceptionYear = organizationDefaultExtension.inceptionYear,
-                license = organizationDefaultExtension.license,
+
+                licenses = organizationDefaultExtension.licenses,
 
                 organization = organizationDefaultExtension.organization,
 
@@ -109,7 +119,8 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                 description = projectPomExt.description,
                 url = projectPomExt.url,
                 inceptionYear = projectPomExt.inceptionYear,
-                license = projectPomExt.license,
+
+                licenses = projectPomExt.licenses,
 
                 developers = projectPomExt.developers,
 

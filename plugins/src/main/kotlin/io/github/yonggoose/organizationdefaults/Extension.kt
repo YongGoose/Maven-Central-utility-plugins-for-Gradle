@@ -2,6 +2,7 @@ package io.github.yonggoose.organizationdefaults
 
 import io.github.yonggoose.organizationdefaults.container.DevelopersContainer
 import io.github.yonggoose.organizationdefaults.container.IssueManagementContainer
+import io.github.yonggoose.organizationdefaults.container.LicenseContainer
 import io.github.yonggoose.organizationdefaults.container.MailingListsContainer
 import io.github.yonggoose.organizationdefaults.container.OrganizationContainer
 import io.github.yonggoose.organizationdefaults.container.ScmContainer
@@ -21,13 +22,17 @@ open class OrganizationDefaultsExtension {
     var description: String? = null
     var url: String? = null
     var inceptionYear: String? = null
-    var license: String? = null
 
+    private val licenseContainer = LicenseContainer()
     private val developersContainer = DevelopersContainer()
     private val mailingListsContainer = MailingListsContainer()
     private val issueManageMentContainer = IssueManagementContainer()
     private val organizationContainer = OrganizationContainer()
     private val scmContainer = ScmContainer()
+
+    var licenses: List<License> = emptyList()
+        get() = licenseContainer.getLicenses()
+        private set
 
     var developers: List<Developer> = emptyList()
         get() = developersContainer.getDevelopers()
@@ -48,6 +53,10 @@ open class OrganizationDefaultsExtension {
     var scm: Scm? = null
         get() = scmContainer.getScm()
         private set
+
+    fun licenses(action: LicenseContainer.() -> Unit) {
+        licenseContainer.action()
+    }
 
     fun developers(action: DevelopersContainer.() -> Unit) {
         developersContainer.action()
@@ -79,7 +88,8 @@ interface OrganizationDefaultsParameters : BuildServiceParameters {
     val description: Property<String>
     val url: Property<String>
     val inceptionYear: Property<String>
-    val license: Property<String>
+
+    val licenses: ListProperty<License>
 
     val developers: ListProperty<Developer>
 
@@ -103,7 +113,16 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
             description = parameters.description.orNull
             url = parameters.url.orNull
             inceptionYear = parameters.inceptionYear.orNull
-            license = parameters.license.orNull
+
+            parameters.licenses.orNull?.let { licenses ->
+                licenses(action = {
+                    licenses.forEach { license ->
+                        license {
+                            licenseType = license.licenseType
+                        }
+                    }
+                })
+            }
 
             parameters.developers.orNull?.let { devs ->
                 developers(action = {
@@ -189,7 +208,8 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
             parameters.description.set(ext.description ?: "")
             parameters.url.set(ext.url ?: "")
             parameters.inceptionYear.set(ext.inceptionYear ?: "")
-            parameters.license.set(ext.license ?: "")
+
+            parameters.licenses.set(ext.licenses)
 
             parameters.developers.set(ext.developers)
 
