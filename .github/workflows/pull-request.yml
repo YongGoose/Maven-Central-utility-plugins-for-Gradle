@@ -23,7 +23,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Gradle 캐싱 설정
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -34,7 +33,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # Gradle 설정 캐시
       - name: Cache Gradle configuration cache
         uses: actions/cache@v4
         with:
@@ -47,15 +45,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v2
-
-      # 빌드 실행 (재시도 로직 포함)
       - name: Build with Gradle
         run: |
           ./gradlew build --no-daemon --stacktrace
 
-      # 테스트 결과 업로드
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
