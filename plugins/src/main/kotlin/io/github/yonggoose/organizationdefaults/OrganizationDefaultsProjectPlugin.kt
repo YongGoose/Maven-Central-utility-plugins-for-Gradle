@@ -1,14 +1,78 @@
 package io.github.yonggoose.organizationdefaults
 
-import io.github.yonggoose.organizationdefaults.OrganizationDefaults
+import io.github.yonggoose.organizationdefaults.container.DevelopersContainer
+import io.github.yonggoose.organizationdefaults.container.IssueManagementContainer
+import io.github.yonggoose.organizationdefaults.container.LicenseContainer
+import io.github.yonggoose.organizationdefaults.container.MailingListsContainer
+import io.github.yonggoose.organizationdefaults.container.OrganizationContainer
+import io.github.yonggoose.organizationdefaults.container.ScmContainer
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 open class PomDefaultsExtension {
+    var groupId: String? = null
+    var artifactId: String? = null
+    var version: String? = null
+
     var name: String? = null
+    var description: String? = null
     var url: String? = null
-    var license: String? = null
-    var developers: List<String> = emptyList()
+    var inceptionYear: String? = null
+
+    private val licenseContainer = LicenseContainer()
+    private val developersContainer = DevelopersContainer()
+    private val mailingListsContainer = MailingListsContainer()
+    private val issueManagementContainer = IssueManagementContainer()
+    private val organizationContainer = OrganizationContainer()
+    private val scmContainer = ScmContainer()
+
+    var licenses: List<License> = emptyList()
+        get() = licenseContainer.getLicenses()
+        private set
+
+    var developers: List<Developer> = emptyList()
+        get() = developersContainer.getDevelopers()
+        private set
+
+    var mailingLists: List<MailingList> = emptyList()
+        get() = mailingListsContainer.getMailingLists()
+        private set
+
+    var issueManagement: IssueManagement? = null
+        get() = issueManagementContainer.getIssueManagement()
+        private set
+
+    var organization: Organization? = null
+        get() = organizationContainer.getOrganization()
+        private set
+
+    var scm: Scm? = null
+        get() = scmContainer.getScm()
+        private set
+
+    fun licenses(action: LicenseContainer.() -> Unit) {
+        licenseContainer.action()
+    }
+
+    fun developers(action: DevelopersContainer.() -> Unit) {
+        developersContainer.action()
+    }
+
+    fun mailingLists(action: MailingListsContainer.() -> Unit) {
+        mailingListsContainer.action()
+    }
+
+    fun issueManagement(action: IssueManagementContainer.() -> Unit) {
+        issueManagementContainer.action()
+    }
+
+    fun organization(action: OrganizationContainer.() -> Unit) {
+        organizationContainer.action()
+    }
+
+    fun scm(action: ScmContainer.() -> Unit) {
+        scmContainer.action()
+    }
 }
 
 class OrganizationDefaultsProjectPlugin : Plugin<Project> {
@@ -24,17 +88,49 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                 ?: PomDefaultsExtension()
 
             val orgDefaults = OrganizationDefaults(
+                groupId = organizationDefaultExtension.groupId,
+                artifactId = organizationDefaultExtension.artifactId,
+                version = organizationDefaultExtension.version,
+
                 name = organizationDefaultExtension.name,
+                description = organizationDefaultExtension.description,
                 url = organizationDefaultExtension.url,
-                license = organizationDefaultExtension.license,
-                developers = organizationDefaultExtension.developers
+                inceptionYear = organizationDefaultExtension.inceptionYear,
+
+                licenses = organizationDefaultExtension.licenses,
+
+                organization = organizationDefaultExtension.organization,
+
+                developers = organizationDefaultExtension.developers,
+
+                issueManagement = organizationDefaultExtension.issueManagement,
+
+                mailingLists = organizationDefaultExtension.mailingLists,
+
+                scm = organizationDefaultExtension.scm
             )
 
             val projectPom = OrganizationDefaults(
+                groupId = projectPomExt.groupId,
+                artifactId = projectPomExt.artifactId,
+                version = projectPomExt.version,
+
                 name = projectPomExt.name,
+                description = projectPomExt.description,
                 url = projectPomExt.url,
-                license = projectPomExt.license,
-                developers = projectPomExt.developers
+                inceptionYear = projectPomExt.inceptionYear,
+
+                licenses = projectPomExt.licenses,
+
+                developers = projectPomExt.developers,
+
+                mailingLists = projectPomExt.mailingLists,
+
+                organization = projectPomExt.organization,
+
+                issueManagement = projectPomExt.issueManagement,
+
+                scm = projectPomExt.scm
             )
 
             val merged = orgDefaults.merge(projectPom)
