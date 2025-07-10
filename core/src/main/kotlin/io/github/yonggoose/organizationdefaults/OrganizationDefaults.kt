@@ -1,5 +1,7 @@
 package io.github.yonggoose.organizationdefaults
 
+import java.io.Serializable
+
 data class OrganizationDefaults(
     val groupId: String? = null,
     val artifactId: String? = null,
@@ -21,7 +23,7 @@ data class OrganizationDefaults(
     val mailingLists: List<MailingList> = emptyList(),
 
     val scm: Scm? = null
-) {
+) : Serializable {
     fun merge(override: OrganizationDefaults?): OrganizationDefaults {
         if (override == null) return this
         return OrganizationDefaults(
@@ -33,23 +35,35 @@ data class OrganizationDefaults(
             url = override.url ?: this.url,
             inceptionYear = override.inceptionYear ?: this.inceptionYear,
             licenses = override.licenses.ifEmpty { this.licenses },
-            organization = override.organization ?: this.organization,
+            organization = if (override.organization?.name == null && override.organization?.url == null) {
+                this.organization
+            } else {
+                override.organization
+            },
             developers = override.developers.ifEmpty { this.developers },
-            issueManagement = override.issueManagement ?: this.issueManagement,
+            issueManagement = if (override.issueManagement?.system == null && override.issueManagement?.url == null) {
+                this.issueManagement
+            } else {
+                override.issueManagement
+            },
             mailingLists = override.mailingLists.ifEmpty { this.mailingLists },
-            scm = override.scm ?: this.scm
+            scm = if (override.scm?.connection == null && override.scm?.developerConnection == null && override.scm?.url == null) {
+                this.scm
+            } else {
+                override.scm
+            }
         )
     }
 }
 
 data class License(
     var licenseType: String? = null
-)
+) : Serializable
 
 data class Organization(
     val name: String? = null,
     val url: String? = null
-)
+) : Serializable
 
 data class Developer(
     val id: String? = null,
@@ -59,12 +73,12 @@ data class Developer(
     val organization: String? = null,
     val organizationUrl: String? = null,
     val timezone: String? = null
-)
+) : Serializable
 
 data class IssueManagement(
     val system: String? = null,
     val url: String? = null
-)
+) : Serializable
 
 data class MailingList(
     val name: String? = null,
@@ -72,10 +86,10 @@ data class MailingList(
     val unsubscribe: String? = null,
     val post: String? = null,
     val archive: String? = null,
-)
+) : Serializable
 
 data class Scm(
     val connection: String? = null,
     val developerConnection: String? = null,
     val url: String? = null
-)
+) : Serializable

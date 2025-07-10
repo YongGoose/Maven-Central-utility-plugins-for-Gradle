@@ -49,7 +49,6 @@ class OrganizationDefaultsProjectPluginTest {
                     license {
                         licenseType = "MIT"
                     }
-                    
                     license {
                         licenseType = "Apache-2.0"
                     }
@@ -127,9 +126,9 @@ class OrganizationDefaultsProjectPluginTest {
                     check(pom.licenses.size == 2)
                     check(pom.licenses[0].licenseType == "MIT")
                     check(pom.licenses[1].licenseType == "Apache-2.0")
-//                    
-//                    check(pom.organization?.name == "YongGoose")
-//                    check(pom.organization?.url == "https://github.com/YongGoose")
+
+                    check(pom.organization?.name == "YongGoose")
+                    check(pom.organization?.url == "https://github.com/YongGoose")
                     
                     check(pom.developers.size == 2)
                     check(pom.developers[0].id == "dev1")
@@ -148,10 +147,10 @@ class OrganizationDefaultsProjectPluginTest {
 
                     check(pom.issueManagement?.system == "GitHub")
                     check(pom.issueManagement?.url == "https://github.com/YongGoose/organization-defaults/issues")
-//                    
-//                    check(pom.scm?.url == "https://github.com/YongGoose/organization-defaults")
-//                    check(pom.scm?.connection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
-//                    check(pom.scm?.developerConnection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
+
+                    check(pom.scm?.url == "https://github.com/YongGoose/organization-defaults")
+                    check(pom.scm?.connection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
+                    check(pom.scm?.developerConnection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
                 }
             }
             """.trimIndent()
@@ -199,7 +198,15 @@ class OrganizationDefaultsProjectPluginTest {
                 description = "Organization defaults plugin test"
                 url = "https://example.org"
                 inceptionYear = "2023"
-                license = "MIT"
+                
+                licenses {
+                    license {
+                        licenseType = "MIT"
+                    }
+                    license {
+                        licenseType = "Apache-2.0"
+                    }
+                }
                 
                 organization {
                     name = "YongGoose"
@@ -262,6 +269,12 @@ class OrganizationDefaultsProjectPluginTest {
                 url = "https://www.google.com/"
                 inceptionYear = "2024"
                 
+                licenses {
+                    license {
+                        licenseType = "MIT"
+                    }
+                }
+                
                 organization {
                     name = "SubOrg"
                     url = "https://sub.example.org"
@@ -294,7 +307,9 @@ class OrganizationDefaultsProjectPluginTest {
                     check(pom.description == "Subproject description")
                     check(pom.url == "https://www.google.com/")
                     check(pom.inceptionYear == "2024")
-                    check(pom.license == "MIT")
+                    
+                    check(pom.licenses.size == 1)
+                    check(pom.licenses[0].licenseType == "MIT")
                     
                     check(pom.organization?.name == "SubOrg")
                     check(pom.organization?.url == "https://sub.example.org")

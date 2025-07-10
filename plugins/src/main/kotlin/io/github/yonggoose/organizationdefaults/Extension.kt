@@ -200,26 +200,22 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
             "rootProjectSetting",
             OrganizationDefaultsService::class.java
         ) {
-            parameters.groupId.set(ext.groupId ?: "")
-            parameters.artifactId.set(ext.artifactId ?: "")
-            parameters.version.set(ext.version ?: "")
+            parameters.groupId.set(settings.providers.provider { ext.groupId ?: "" })
+            parameters.artifactId.set(settings.providers.provider { ext.artifactId ?: "" })
+            parameters.version.set(settings.providers.provider { ext.version ?: "" })
 
-            parameters.name.set(ext.name ?: "")
-            parameters.description.set(ext.description ?: "")
-            parameters.url.set(ext.url ?: "")
-            parameters.inceptionYear.set(ext.inceptionYear ?: "")
+            parameters.name.set(settings.providers.provider { ext.name ?: "" })
+            parameters.description.set(settings.providers.provider { ext.description ?: "" })
+            parameters.url.set(settings.providers.provider { ext.url ?: "" })
+            parameters.inceptionYear.set(settings.providers.provider { ext.inceptionYear ?: "" })
 
-            parameters.licenses.set(ext.licenses)
+            parameters.licenses.set(settings.providers.provider { ext.licenses })
+            parameters.developers.set(settings.providers.provider { ext.developers })
+            parameters.mailingLists.set(settings.providers.provider { ext.mailingLists })
 
-            parameters.developers.set(ext.developers)
-
-            parameters.mailingLists.set(ext.mailingLists)
-
-            parameters.organization.set(ext.organization ?: Organization())
-
-            parameters.issueManagement.set(ext.issueManagement ?: IssueManagement())
-
-            parameters.scm.set(ext.scm ?: Scm())
+            parameters.organization.set(settings.providers.provider { ext.organization ?: Organization() })
+            parameters.issueManagement.set(settings.providers.provider { ext.issueManagement ?: IssueManagement() })
+            parameters.scm.set(settings.providers.provider { ext.scm ?: Scm() })
         }
     }
 }
