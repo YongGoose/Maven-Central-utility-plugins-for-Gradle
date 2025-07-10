@@ -186,26 +186,6 @@ tasks.register("printProjectInfo") {
 }
 ```
 
-## Project Structure
-
-```
-kotlin-pom-gradle/
-├── core/ # Core logic
-│ ├── src/main/kotlin/ # Core classes (e.g., POM model, service APIs)
-│ └── build.gradle.kts # Module build script
-│
-├── plugin/ # Plugin implementation
-│ ├── src/main/kotlin/ # Plugin implementation (Gradle Project plugin)
-│ └── build.gradle.kts # Module build script
-│
-├── testing/ # Test implementation
-│ ├── src/test/kotlin/ # Test implementation
-│ └── build.gradle.kts # Module build script
-│
-├── build.gradle.kts # Root build file
-└── settings.gradle.kts # Root settings file
-```
-
 ## Data Structure
 
 The plugin supports the following POM-compatible structure:
