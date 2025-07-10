@@ -37,10 +37,5 @@ gradlePlugin {
             id = "io.github.yonggoose.organization-defaults-artifact-check-project"
             implementationClass = "io.github.yonggoose.organizationdefaults.ArtifactCheckPluginForProject"
         }
-
-        create("artifactCheckSetting") {
-            id = "io.github.yonggoose.organization-defaults-artifact-check-setting"
-            implementationClass = "io.github.yonggoose.organizationdefaults.ArtifactCheckPluginForSetting"
-        }
     }
 }
