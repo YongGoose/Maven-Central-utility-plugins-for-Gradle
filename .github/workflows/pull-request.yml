@@ -23,25 +23,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Cache Gradle configuration cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            .gradle/configuration-cache
-          key: ${{ runner.os }}-gradle-config-${{ hashFiles('**/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-config-
-
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 

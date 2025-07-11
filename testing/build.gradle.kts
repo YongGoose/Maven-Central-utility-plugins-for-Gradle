@@ -3,10 +3,6 @@ plugins {
     id("java-gradle-plugin")
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     implementation(project(":core"))
     implementation(project(":plugins"))
