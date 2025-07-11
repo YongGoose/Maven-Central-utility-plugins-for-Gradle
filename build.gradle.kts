@@ -6,11 +6,11 @@ plugins {
 }
 
 group = "io.github.yongoose"
-version = "1.0-SNAPSHOT"
+version = "0.1.0"
 
 allprojects {
     group = "io.github.yonggoose"
-    version = "0.1.0-SNAPSHOT"
+    version = "0.1.0"
 
     repositories {
         mavenCentral()
