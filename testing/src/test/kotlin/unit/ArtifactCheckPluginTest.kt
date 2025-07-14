@@ -20,8 +20,8 @@ class ArtifactCheckPluginTest {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
             plugins {
-                id("io.github.yonggoose.organization-defaults-artifact-check-project")
-                id("io.github.yonggoose.organization-defaults-project")
+                id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+                id("io.github.yonggoose.kotlin-pom-gradle-project")
             }
             
              rootProjectPom {
@@ -76,8 +76,8 @@ class ArtifactCheckPluginTest {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
             plugins {
-                id("io.github.yonggoose.organization-defaults-artifact-check-project")
-                id("io.github.yonggoose.organization-defaults-project")
+                id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+                id("io.github.yonggoose.kotlin-pom-gradle-project")
             }
             
              rootProjectPom {
