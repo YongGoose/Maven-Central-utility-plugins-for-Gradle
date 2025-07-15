@@ -3,6 +3,10 @@ package io.github.yonggoose.organizationdefaults
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
+/**
+ * A Gradle plugin that adds an artifact verification task to the project.
+ * Validates the metadata of artifacts to be published according to Maven Central requirements.
+ */
 class ArtifactCheckPluginForProject : Plugin<Project> {
     override fun apply(project: Project) {
         project.tasks.register("checkProjectArtifact") {

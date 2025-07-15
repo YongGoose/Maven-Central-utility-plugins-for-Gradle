@@ -2,6 +2,9 @@ package io.github.yonggoose.organizationdefaults.container
 
 import io.github.yonggoose.organizationdefaults.MailingList
 
+/**
+ * Specifies mailingList information.
+ */
 class MailingListSpec {
     var name: String? = null
     var subscribe: String? = null
@@ -12,6 +15,9 @@ class MailingListSpec {
     fun build() = MailingList(name, subscribe, unsubscribe, post, archive)
 }
 
+/**
+ * Container class for managing multiple mailingLists.
+ */
 class MailingListsContainer {
     private val mailingLists = mutableListOf<MailingList>()
 

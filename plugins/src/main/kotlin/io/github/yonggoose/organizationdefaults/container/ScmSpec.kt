@@ -2,12 +2,18 @@ package io.github.yonggoose.organizationdefaults.container
 
 import io.github.yonggoose.organizationdefaults.Scm
 
+/**
+ * Specifies scm information.
+ */
 class ScmSpec {
     var connection: String? = null
     var developerConnection: String? = null
     var url: String? = null
 }
 
+/**
+ * Container class for managing scm.
+ */
 class ScmContainer {
     var connection: String? = null
     var developerConnection: String? = null
