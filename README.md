@@ -4,7 +4,7 @@
 [![Gradle](https://img.shields.io/badge/Gradle-8.0%2B-blue.svg)](https://gradle.org/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A Gradle plugin for managing organization-level defaults in multi-module projects. Define your organization information once in the root project and propagate it to all submodules.
+A Gradle plugin that makes managing your Maven POM metadata simple and effortless.
 
 ## Features
 
@@ -14,9 +14,7 @@ A Gradle plugin for managing organization-level defaults in multi-module project
 - Artifact signing verification before publishing
   Add a `checkProjectArtifact` task to verify that all artifacts staged for publishing are properly signed, ensuring compliance with Maven Central requirements.
 
-## Installation and Usage
-
-This plugin offers two different ways to configure your project:
+## 1. Organization-wide POM Management Options
 
 ### Option 1: Using settings.gradle.kts
 
@@ -199,6 +197,8 @@ tasks.register("printProjectInfo") {
 \- SCM: connection, developerConnection, url
 
 </details>
+
+## 2. Artifact Signing & POM Validation
 
 ### Artifact Signing Verification
 
