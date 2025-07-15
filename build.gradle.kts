@@ -1,16 +1,13 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    kotlin("jvm") version "1.9.23" apply false
+    kotlin("jvm") version "2.0.21" apply false
     id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
 }
 
-group = "io.github.yongoose"
-version = "1.0-SNAPSHOT"
-
 allprojects {
     group = "io.github.yonggoose"
-    version = "0.1.0-SNAPSHOT"
+    version = "0.1.0"
 
     repositories {
         mavenCentral()

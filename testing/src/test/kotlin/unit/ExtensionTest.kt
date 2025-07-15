@@ -24,16 +24,69 @@ class ExtensionTest {
             }
             
             plugins {
-                id("io.github.yonggoose.organization-defaults-setting")
+                id("io.github.yonggoose.kotlin-pom-gradle-setting")
             }
             
             rootProjectSetting {
-                name = "MyCompany"
-                url = "https://mycompany.com"
-                license = "MIT"
-                developers = listOf("Alice", "Bob")
+                groupId = "io.github.yonggoose"
+                artifactId = "organization-defaults"
+                version = "1.0.0"
+                
+                name = "Test Organization"
+                description = "Organization defaults plugin test"
+                url = "https://example.org"
+                inceptionYear = "2023"
+                
+                licenses {
+                    license {
+                        licenseType = "MIT"
+                    }
+                    license {
+                        licenseType = "Apache-2.0"
+                    }
+                }
+                
+                organization {
+                    name = "YongGoose"
+                    url = "https://github.com/YongGoose"
+                }
+                
+                developers {
+                    developer {
+                        id = "dev1"
+                        name = "Developer1"
+                        email = "dev1@example.com"
+                        timezone = "UTC"
+                    }
+                    developer {
+                        id = "dev2"
+                        name = "Developer2"
+                        email = "dev2@example.com"
+                        timezone = "UTC"
+                    }
+                }
+                
+                mailingLists {
+                    mailingList {
+                        name = "Developers"
+                        subscribe = "dev-subscribe@example.org"
+                        unsubscribe = "dev-unsubscribe@example.org"
+                        post = "dev@example.org"
+                        archive = "https://example.org/archive"
+                    }
+                }
+                
+                issueManagement {
+                    system = "GitHub"
+                    url = "https://github.com/YongGoose/organization-defaults/issues"
+                }
+                
+                scm {
+                    url = "https://github.com/YongGoose/organization-defaults"
+                    connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
+                    developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
+                }
             }
-
             include("sub")
             """.trimIndent()
         )
@@ -53,12 +106,45 @@ class ExtensionTest {
                         .service
                         .get() as OrganizationDefaultsService
                     
-                    val defaults = service.getDefaults()
+                    val pom = service.getDefaults()
+
+                    check(pom.groupId == "io.github.yonggoose")
+                    check(pom.artifactId == "organization-defaults")
+                    check(pom.version == "1.0.0")
                     
-                    assert(defaults.name == "MyCompany")
-                    assert(defaults.url == "https://mycompany.com")
-                    assert(defaults.license == "MIT")
-                    assert(defaults.developers == listOf("Alice", "Bob"))
+                    check(pom.name == "Test Organization")
+                    check(pom.description == "Organization defaults plugin test")
+                    check(pom.url == "https://example.org")
+                    check(pom.inceptionYear == "2023")
+                    
+                    check(pom.licenses.size == 2)
+                    check(pom.licenses[0].licenseType == "MIT")
+                    check(pom.licenses[1].licenseType == "Apache-2.0")
+
+                    check(pom.organization?.name == "YongGoose")
+                    check(pom.organization?.url == "https://github.com/YongGoose")
+                    
+                    check(pom.developers.size == 2)
+                    check(pom.developers[0].id == "dev1")
+                    check(pom.developers[0].name == "Developer1")
+                    check(pom.developers[0].email == "dev1@example.com")
+                    check(pom.developers[1].id == "dev2")
+                    check(pom.developers[1].name == "Developer2")
+                    check(pom.developers[1].email == "dev2@example.com")
+
+                    check(pom.mailingLists.size == 1)
+                    check(pom.mailingLists[0].name == "Developers")
+                    check(pom.mailingLists[0].subscribe == "dev-subscribe@example.org")
+                    check(pom.mailingLists[0].unsubscribe == "dev-unsubscribe@example.org")
+                    check(pom.mailingLists[0].post == "dev@example.org")
+                    check(pom.mailingLists[0].archive == "https://example.org/archive")
+
+                    check(pom.issueManagement?.system == "GitHub")
+                    check(pom.issueManagement?.url == "https://github.com/YongGoose/organization-defaults/issues")
+
+                    check(pom.scm?.url == "https://github.com/YongGoose/organization-defaults")
+                    check(pom.scm?.connection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
+                    check(pom.scm?.developerConnection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
                 }
             }
         """.trimIndent()

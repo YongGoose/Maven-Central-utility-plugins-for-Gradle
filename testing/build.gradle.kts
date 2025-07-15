@@ -1,10 +1,6 @@
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm")
     id("java-gradle-plugin")
-}
-
-repositories {
-    mavenCentral()
 }
 
 dependencies {
