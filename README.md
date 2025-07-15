@@ -188,13 +188,13 @@ tasks.register("printProjectInfo") {
 <details>
 <summary>Data Structure</summary>
 
-\- Basic information: groupId, artifactId, version, name, description, url, inceptionYear  
-\- Organization information: name, url  
-\- License details: licenseType  
-\- Developers: id, name, email, url, organization, organizationUrl, timezone  
-\- Mailing lists: name, subscribe, unsubscribe, post, archive  
-\- Issue management: system, url  
-\- SCM: connection, developerConnection, url
+- Basic information: groupId, artifactId, version, name, description, url, inceptionYear  
+- Organization information: name, url  
+- License details: licenseType  
+- Developers: id, name, email, url, organization, organizationUrl, timezone  
+- Mailing lists: name, subscribe, unsubscribe, post, archive  
+- Issue management: system, url  
+- SCM: connection, developerConnection, url
 
 </details>
 
