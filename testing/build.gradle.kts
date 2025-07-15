@@ -4,7 +4,6 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":core"))
     implementation(project(":plugins"))
     testImplementation(gradleTestKit())
     testImplementation(kotlin("test-junit5"))

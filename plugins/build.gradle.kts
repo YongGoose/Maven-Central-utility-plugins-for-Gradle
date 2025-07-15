@@ -8,7 +8,6 @@ plugins {
 dependencies {
     implementation(gradleApi())
     implementation(gradleKotlinDsl())
-    implementation(project(":core"))
 }
 
 kotlin {
