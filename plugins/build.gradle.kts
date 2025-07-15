@@ -25,30 +25,28 @@ gradlePlugin {
     vcsUrl = "https://github.com/YongGoose/kotlin-pom-gradle.git"
 
     plugins {
-        plugins {
-            create("organizationDefaultsProject") {
-                id = "io.github.yonggoose.kotlin-pom-gradle-project"
-                displayName = "Organization Defaults Project Plugin"
-                description = "A Gradle plugin to apply organization-wide defaults to projects."
-                tags = setOf("organization", "defaults")
-                implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsProjectPlugin"
-            }
+        create("organizationDefaultsProject") {
+            id = "io.github.yonggoose.kotlin-pom-gradle-project"
+            displayName = "Organization Defaults Project Plugin"
+            description = "A Gradle plugin to apply organization-wide defaults to projects."
+            tags = setOf("organization", "defaults")
+            implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsProjectPlugin"
+        }
 
-            create("organizationDefaultsSetting") {
-                id = "io.github.yonggoose.kotlin-pom-gradle-setting"
-                displayName = "Organization Defaults Settings Plugin"
-                description = "A Gradle plugin to apply organization-wide defaults to settings."
-                tags = setOf("organization", "defaults", "settings")
-                implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsSettingsPlugin"
-            }
+        create("organizationDefaultsSetting") {
+            id = "io.github.yonggoose.kotlin-pom-gradle-setting"
+            displayName = "Organization Defaults Settings Plugin"
+            description = "A Gradle plugin to apply organization-wide defaults to settings."
+            tags = setOf("organization", "defaults", "settings")
+            implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsSettingsPlugin"
+        }
 
-            create("artifactCheckProject") {
-                id = "io.github.yonggoose.kotlin-pom-gradle-artifact-check-project"
-                displayName = "Artifact Check Project Plugin"
-                description = "A Gradle plugin to check artifacts against organization defaults."
-                tags = setOf("organization", "defaults", "artifact", "check")
-                implementationClass = "io.github.yonggoose.organizationdefaults.ArtifactCheckPluginForProject"
-            }
+        create("artifactCheckProject") {
+            id = "io.github.yonggoose.kotlin-pom-gradle-artifact-check-project"
+            displayName = "Artifact Check Project Plugin"
+            description = "A Gradle plugin to check artifacts against organization defaults."
+            tags = setOf("organization", "defaults", "artifact", "check")
+            implementationClass = "io.github.yonggoose.organizationdefaults.ArtifactCheckPluginForProject"
         }
     }
 }
