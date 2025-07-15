@@ -13,6 +13,9 @@ import org.gradle.api.provider.Property
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
 
+/**
+ * Extension for specifying organization-wide default metadata for Gradle projects.
+ */
 open class OrganizationDefaultsExtension {
     var groupId: String? = null
     var artifactId: String? = null
@@ -79,6 +82,9 @@ open class OrganizationDefaultsExtension {
     }
 }
 
+/**
+ * Parameters for the OrganizationDefaults build service.
+ */
 interface OrganizationDefaultsParameters : BuildServiceParameters {
     val groupId: Property<String>
     val artifactId: Property<String>
@@ -102,6 +108,9 @@ interface OrganizationDefaultsParameters : BuildServiceParameters {
     val scm: Property<Scm>
 }
 
+/**
+ * Build service that provides organization default metadata to Gradle builds.
+ */
 abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsParameters> {
     fun getDefaults(): OrganizationDefaultsExtension {
         return OrganizationDefaultsExtension().apply {
@@ -192,6 +201,9 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
     }
 }
 
+/**
+ * Gradle settings plugin for registering and configuring organization default metadata.
+ */
 class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
         val ext = settings.extensions.create("rootProjectSetting", OrganizationDefaultsExtension::class.java)

@@ -9,6 +9,9 @@ import io.github.yonggoose.organizationdefaults.container.ScmContainer
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
+/**
+ * Extension for specifying default POM metadata for Gradle projects.
+ */
 open class PomDefaultsExtension {
     var groupId: String? = null
     var artifactId: String? = null
@@ -75,6 +78,9 @@ open class PomDefaultsExtension {
     }
 }
 
+/**
+ * Gradle plugin for providing and merging organization-wide default POM metadata into projects.
+ */
 class OrganizationDefaultsProjectPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val projectPomExt = project.extensions.create("projectPom", PomDefaultsExtension::class.java)

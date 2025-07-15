@@ -2,6 +2,9 @@ package io.github.yonggoose.organizationdefaults.container
 
 import io.github.yonggoose.organizationdefaults.Developer
 
+/**
+ * Specifies developer information.
+ */
 class DeveloperSpec {
     var id: String? = null
     var name: String? = null
@@ -14,6 +17,9 @@ class DeveloperSpec {
     fun build() = Developer(id, name, email, url, organization, organizationUrl, timezone)
 }
 
+/**
+ * Container class for managing multiple developers.
+ */
 class DevelopersContainer {
     private val developers = mutableListOf<Developer>()
 
