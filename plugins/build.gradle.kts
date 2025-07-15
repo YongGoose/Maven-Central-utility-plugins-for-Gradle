@@ -3,6 +3,7 @@ plugins {
     id("java-gradle-plugin")
     `kotlin-dsl`
     id("com.gradle.plugin-publish") version "1.2.1"
+    id("com.gradleup.shadow") version "8.3.0"
 }
 
 dependencies {
@@ -11,11 +12,29 @@ dependencies {
     implementation(project(":core"))
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
 kotlin {
     jvmToolchain(17)
+}
+
+tasks {
+    shadowJar {
+        archiveClassifier.set("")
+        archiveFileName.set("kotlin-pom-gradle-${project.version}.jar")
+
+        dependencies {
+            include(project(":core"))
+        }
+    }
+
+    jar {
+        enabled = false
+    }
+    build {
+        dependsOn(shadowJar)
+    }
+    test {
+        useJUnitPlatform()
+    }
 }
 
 gradlePlugin {
