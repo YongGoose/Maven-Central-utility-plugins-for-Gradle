@@ -22,7 +22,7 @@ Apply the plugin in your `settings.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.organization-defaults-setting") version "0.1.0"
+    id("io.github.yonggoose.kotlin-pom-gradle-setting") version "0.1.0"
 }
 
 rootProjectSetting {
@@ -105,7 +105,7 @@ Apply the plugin in your root `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.organization-defaults-project") version "0.1.0"
+    id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.0"
 }
 
 rootProjectPom {
@@ -165,7 +165,7 @@ In your submodule's `build.gradle.kts`, apply the plugin and override settings a
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.organization-defaults-project") version "0.1.0"
+    id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.0"
 }
 
 // Override only what's needed
