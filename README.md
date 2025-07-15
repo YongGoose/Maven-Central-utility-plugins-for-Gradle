@@ -11,6 +11,8 @@ A Gradle plugin for managing organization-level defaults in multi-module project
 - Define organization information once at the root project and automatically propagate to all submodules
 - Selectively override specific information in submodules as needed
 - Maven POM-compatible structure (groupId, artifactId, version, licenses, etc.)
+- Artifact signing verification before publishing
+  Add a `checkProjectArtifact` task to verify that all artifacts staged for publishing are properly signed, ensuring compliance with Maven Central requirements.
 
 ## Installation and Usage
 
@@ -185,18 +187,72 @@ tasks.register("printProjectInfo") {
     }
 }
 ```
+<details>
+<summary>Data Structure</summary>
 
-## Data Structure
+\- Basic information: groupId, artifactId, version, name, description, url, inceptionYear  
+\- Organization information: name, url  
+\- License details: licenseType  
+\- Developers: id, name, email, url, organization, organizationUrl, timezone  
+\- Mailing lists: name, subscribe, unsubscribe, post, archive  
+\- Issue management: system, url  
+\- SCM: connection, developerConnection, url
 
-The plugin supports the following POM-compatible structure:
+</details>
 
-- Basic information: groupId, artifactId, version, name, description, url, inceptionYear
-- Organization information: name, url
-- License details: licenseType
-- Developers: id, name, email, url, organization, organizationUrl, timezone
-- Mailing lists: name, subscribe, unsubscribe, post, archive
-- Issue management: system, url
-- SCM: connection, developerConnection, url
+### Artifact Signing Verification
+
+```kotlin
+plugins {
+    id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+    id("io.github.yonggoose.kotlin-pom-gradle-project")
+}
+
+rootProjectPom {
+    groupId = "io.github.yonggoose"
+    artifactId = "organization-defaults"
+    version = "1.0.0"
+
+    name = "Test Organization"
+    description = "Organization defaults plugin test"
+    url = "https://example.org"
+
+    licenses {
+        license {
+            licenseType = "MIT"
+        }
+        license {
+            licenseType = "Apache-2.0"
+        }
+    }
+
+    developers {
+        developer {
+            id = "dev1"
+            name = "Developer1"
+            email = "dev1@example.com"
+            timezone = "UTC"
+            organization = "YongGoose"
+            organizationUrl = "https://yonggoose.github.io"
+        }
+    }
+
+    scm {
+        url = "https://github.com/YongGoose/organization-defaults"
+        connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
+        developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
+    }
+}
+```
+
+After configuring your `build.gradle.kts` as above, simply run the following task to verify your artifacts:
+
+```shell
+./gradlew checkProjectArtifact
+```
+
+This will validate that all required POM fields and artifact signatures meet Maven Central requirements.  
+If any issues are found, the build will fail with detailed error messages.
 
 ## Requirements
 
