@@ -8,6 +8,8 @@ plugins {
 dependencies {
     implementation(gradleApi())
     implementation(gradleKotlinDsl())
+    implementation("org.bouncycastle:bcpg-jdk18on:1.77")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.77")
 }
 
 kotlin {
