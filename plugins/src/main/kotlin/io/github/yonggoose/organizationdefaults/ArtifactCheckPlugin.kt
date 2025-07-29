@@ -61,7 +61,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         }
 
         if (pom.artifactId.isNullOrBlank()) {
-            errors.add("Invalid artifactId: Must be a unique component name.")
+            errors.add("Invalid artifactId: Pom must not be null or blank.")
         }
 
         val version = pom.version
