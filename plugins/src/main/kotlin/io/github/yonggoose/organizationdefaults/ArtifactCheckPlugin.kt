@@ -33,8 +33,6 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             description =
                 "Verifies that all artifacts staged for publishing are signed and meet Maven Central requirements."
 
-            mustRunAfter("publishToMavenLocal")
-
             doLast {
                 val pom = project.rootProject.extensions.extraProperties.get("mergedDefaults") as? OrganizationDefaults
                     ?: throw IllegalStateException("mergedDefaults is not defined in the root project.")
