@@ -107,6 +107,15 @@ class ArtifactCheckPluginTest {
             """.trimIndent()
         )
 
+        projectDir.resolve("src/main/java/").toFile().mkdirs();
+        projectDir.resolve("src/main/java/HelloWorld.java").toFile().writeText("""
+             public class HelloWorld {
+                public static void main(String[] args) {
+                    System.out.println("Hello, World");
+                }
+            }
+        """.trimIndent())
+
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
             plugins {
@@ -115,9 +124,13 @@ class ArtifactCheckPluginTest {
                 signing
                 id("com.vanniktech.maven.publish") version "0.34.0"
                 id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
+                id("io.github.yonggoose.kotlin-pom-gradle-project") */
             }
-                        
+            
+            application {
+                mainClass = "HelloWorld" 
+            }
+                 
             rootProjectPom {
                 groupId = "io.github.yonggoose"
                 artifactId = "organization-defaults"
@@ -152,7 +165,7 @@ class ArtifactCheckPluginTest {
                     connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
                     developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
                 }
-            }
+            } 
             
             mavenPublishing {
               publishToMavenCentral()
@@ -161,11 +174,11 @@ class ArtifactCheckPluginTest {
             """.trimIndent()
         )
 
-        RealEnvironmentSetup.generateRealSignedArtifacts(projectDir.toFile())
+     //   RealEnvironmentSetup.generateRealSignedArtifacts(projectDir.toFile())
 
         val result = GradleRunner.create()
             .withProjectDir(projectDir.toFile())
-            .withArguments("checkProjectArtifact")
+            .withArguments("build", "--info")
             .withPluginClasspath()
             .build()
 

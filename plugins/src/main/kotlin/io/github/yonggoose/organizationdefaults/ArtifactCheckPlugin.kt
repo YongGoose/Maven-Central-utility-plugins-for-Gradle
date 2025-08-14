@@ -158,12 +158,11 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
         publication.artifacts.forEach { artifact ->
             val artifactFile = artifact.file
-            project.logger.info("Checking signature for artifact: ${artifactFile.name}")
-
-            val signatureFile = findSignatureFileForArtifact(artifactFile, signatureArtifacts)
+            project.logger.info("Checking signature for artifact: ${artifactFile.absolutePath} among ${signatureArtifacts.size} artifacts")
+            val signatureFile = findSignatureFileForArtifact(project, artifactFile, signatureArtifacts)
 
             if (signatureFile == null) {
-                errors.add("PGP signature not found for artifact: ${artifactFile.name}")
+                errors.add("PGP signature not found for artifact: ${artifactFile.absolutePath}")
                 return@forEach
             }
 
@@ -243,11 +242,13 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     }
 
     private fun findSignatureFileForArtifact(
+        project: Project,
         artifactFile: File,
         signatureArtifacts: org.gradle.api.artifacts.PublishArtifactSet
     ): File? {
         val expectedSignatureName = "${artifactFile.name}.asc"
 
+        project.logger.info("Looking for ${expectedSignatureName}")
         return signatureArtifacts.find { signatureArtifact ->
             val signatureFile = signatureArtifact.file
             signatureFile.name == expectedSignatureName ||

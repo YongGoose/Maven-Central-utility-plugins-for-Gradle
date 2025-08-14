@@ -43,7 +43,7 @@ class RealEnvironmentSetup private constructor() {
             val buildDir = File(projectDir, "build")
             buildDir.mkdirs()
 
-            val publicationsDir = File(buildDir, "publications/mavenJava")
+            val publicationsDir = File(buildDir, "libs")
             publicationsDir.mkdirs()
 
             val projectName = projectDir.name
