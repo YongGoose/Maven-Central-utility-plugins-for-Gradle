@@ -1,20 +1,33 @@
+// File: testing/src/test/kotlin/unit/ArtifactCheckPluginTest.kt
 package unit
 
+import common.RealEnvironmentSetup
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.gradle.testkit.runner.UnexpectedBuildFailure
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.io.path.writeText
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ArtifactCheckPluginTest {
 
     @TempDir
     lateinit var projectDir: Path
+
+    @BeforeEach
+    fun setUp() {
+        RealEnvironmentSetup.generateRealPgpKeys(projectDir.toFile())
+    }
 
     @Test
     fun `checkProjectArtifact task should pass validation`() {
@@ -25,7 +38,7 @@ class ArtifactCheckPluginTest {
                 id("io.github.yonggoose.kotlin-pom-gradle-project")
             }
                         
-             rootProjectPom {
+            rootProjectPom {
                 groupId = "io.github.yonggoose"
                 artifactId = "organization-defaults"
                 version = "1.0.0"
@@ -62,13 +75,15 @@ class ArtifactCheckPluginTest {
             }
             """.trimIndent()
         )
-        projectDir.resolve("src/main/java/Hello.java").writeText("""
-             public class HelloWorld {
+        projectDir.resolve("src/main/java/Hello.java").toFile().writeText(
+            """
+            public class HelloWorld {
                 public static void main(String[] args) {
                     System.out.println("Hello, World");
                 }
             }
-        """.trimIndent())
+            """.trimIndent()
+        )
 
         val result = GradleRunner.create()
             .withProjectDir(projectDir.toFile())
@@ -81,16 +96,14 @@ class ArtifactCheckPluginTest {
 
     @Test
     fun `checkProjectArtifact task should pass for vanniktech's gradle-maven-publish-plugin`() {
-
-        // FIXME - Add GPG file to the repository, confirgure gradle.properties correctly - https://docs.gradle.org/current/userguide/signing_plugin.html
         projectDir.resolve("gradle.properties").toFile().writeText(
             """
-                signing.gnupg.executable=gpg
-                signing.gnupg.useLegacyGpg=true
-                signing.gnupg.homeDir=gnupg-home
-                signing.gnupg.optionsFile=gnupg-home/gpg.conf
-                signing.gnupg.keyName=24875D73
-                signing.gnupg.passphrase=gradle
+            signing.gnupg.executable=gpg
+            signing.gnupg.useLegacyGpg=true
+            signing.gnupg.homeDir=gnupg-home
+            signing.gnupg.optionsFile=gnupg-home/gpg.conf
+            signing.gnupg.keyName=24875D73
+            signing.gnupg.passphrase=gradle
             """.trimIndent()
         )
 
@@ -105,7 +118,7 @@ class ArtifactCheckPluginTest {
                 id("io.github.yonggoose.kotlin-pom-gradle-project")
             }
                         
-             rootProjectPom {
+            rootProjectPom {
                 groupId = "io.github.yonggoose"
                 artifactId = "organization-defaults"
                 version = "1.0.0"
@@ -143,17 +156,23 @@ class ArtifactCheckPluginTest {
             
             mavenPublishing {
               publishToMavenCentral()
-
               signAllPublications()
             }
             """.trimIndent()
         )
+
+        RealEnvironmentSetup.generateRealSignedArtifacts(projectDir.toFile())
 
         val result = GradleRunner.create()
             .withProjectDir(projectDir.toFile())
             .withArguments("checkProjectArtifact")
             .withPluginClasspath()
             .build()
+
+        val publicContent = File(projectDir.toFile(), "public.asc").readText()
+        val privateContent = File(projectDir.toFile(), "private.asc").readText()
+        assertTrue(publicContent.contains("BEGIN PGP PUBLIC KEY BLOCK"))
+        assertTrue(privateContent.contains("BEGIN PGP PRIVATE KEY BLOCK"))
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
     }
@@ -167,11 +186,10 @@ class ArtifactCheckPluginTest {
                 id("io.github.yonggoose.kotlin-pom-gradle-project")
             }
             
-             rootProjectPom {
+            rootProjectPom {
                 groupId = "io.github.yonggoose"
                 artifactId = "organization-defaults"
                 version = "1.0.0"
-                
                 
                 licenses {
                     license {
