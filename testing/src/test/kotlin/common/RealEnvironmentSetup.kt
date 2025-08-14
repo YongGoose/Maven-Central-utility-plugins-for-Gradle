@@ -40,35 +40,35 @@ class RealEnvironmentSetup private constructor() {
 
         @JvmStatic
         fun generateRealSignedArtifacts(projectDir: File) {
+            val buildDir = File(projectDir, "build")
+            buildDir.mkdirs()
+
+            val publicationsDir = File(buildDir, "publications/mavenJava")
+            publicationsDir.mkdirs()
+
             val projectName = projectDir.name
-            val jarFile = File(projectDir, "$projectName.jar")
-            val javadocJarFile = File(projectDir, "$projectName-javadoc.jar")
-            val sourcesJarFile = File(projectDir, "$projectName-sources.jar")
-            val pomFile = File(projectDir, "pom-default.xml")
+
+            val jarFile = File(publicationsDir, "$projectName.jar")
+            val javadocJarFile = File(publicationsDir, "$projectName-javadoc.jar")
+            val sourcesJarFile = File(publicationsDir, "$projectName-sources.jar")
+            val pomFile = File(publicationsDir, "pom-default.xml")
 
             createRealArtifact(jarFile)
             createRealArtifact(javadocJarFile)
             createRealArtifact(sourcesJarFile)
             pomFile.writeText("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <project xmlns="http://maven.apache.org/POM/4.0.0"
-                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
-                         http://maven.apache.org/xsd/maven-4.0.0.xsd">
-                    <modelVersion>4.0.0</modelVersion>
+                <project>
                     <groupId>io.github.yonggoose</groupId>
-                    <artifactId>organization-defaults</artifactId>
+                    <artifactId>$projectName</artifactId>
                     <version>1.0.0</version>
                 </project>
             """.trimIndent())
 
-            val privateKeyFile = File(projectDir, "private.asc")
-            if (privateKeyFile.exists()) {
-                createRealSignatureFile(jarFile, privateKeyFile)
-                createRealSignatureFile(javadocJarFile, privateKeyFile)
-                createRealSignatureFile(sourcesJarFile, privateKeyFile)
-                createRealSignatureFile(pomFile, privateKeyFile)
-            }
+            createRealSignatureFile(jarFile)
+            createRealSignatureFile(javadocJarFile)
+            createRealSignatureFile(sourcesJarFile)
+            createRealSignatureFile(pomFile)
         }
 
         private fun createRealArtifact(file: File) {
@@ -79,26 +79,26 @@ class RealEnvironmentSetup private constructor() {
             }
         }
 
-        private fun createRealSignatureFile(artifactFile: File, privateKeyFile: File) {
+        private fun createRealSignatureFile(artifactFile: File) {
             try {
                 val signatureFile = File(artifactFile.parentFile, "${artifactFile.name}.asc")
 
                 val signatureContent = """
-                    -----BEGIN PGP SIGNATURE-----
-                    
-                    iQEcBAABCAAGBQJkA1c1AAoJEJ6+CcKcIbSx0kEH/1KNk7vliiY7vlxOOeWBYQye
-                    nHsL8XEkjvPBNJBWpCtiRgUf9B5VKgFjh6MheTEQVJ6q+IOc5Ic8SubHtTy1f0M5
-                    7QZw/CNO0WM0iW4Dgw9X86QNbW5H1zF0KIXnlz+mcCgCVOHlYqpBDI2aWQM+WUJQ
-                    vvIVDkFHKlLb+YrKN6eQLfQUVuEw9JcTkPPgLqEz5/hQHUb7TlE+SBVOUgDZcEWV
-                    kgKuXE8pL0GbAPBh2SdMoIEsKH2YqwFNL4yYRyDaOvBKEXZbGjhJAaeJaFCQJA2s
-                    zRy5ecpK5PLm4aCJ4+IIuCvhSQsV6S3JZt1AKPn/uaJ0T8jWTQWWYIb6XKE=
-                    =t/i8
-                    -----END PGP SIGNATURE-----
-                """.trimIndent()
+                -----BEGIN PGP SIGNATURE-----
+                
+                iQEcBAABCAAGBQJkA1c1AAoJEJ6+CcKcIbSx0kEH/1KNk7vliiY7vlxOOeWBYQye
+                nHsL8XEkjvPBNJBWpCtiRgUf9B5VKgFjh6MheTEQVJ6q+IOc5Ic8SubHtTy1f0M5
+                7QZw/CNO0WM0iW4Dgw9X86QNbW5H1zF0KIXnlz+mcCgCVOHlYqpBDI2aWQM+WUJQ
+                vvIVDkFHKlLb+YrKN6eQLfQUVuEw9JcTkPPgLqEz5/hQHUb7TlE+SBVOUgDZcEWV
+                kgKuXE8pL0GbAPBh2SdMoIEsKH2YqwFNL4yYRyDaOvBKEXZbGjhJAaeJaFCQJA2s
+                zRy5ecpK5PLm4aCJ4+IIuCvhSQsV6S3JZt1AKPn/uaJ0T8jWTQWWYIb6XKE=
+                =t/i8
+                -----END PGP SIGNATURE-----
+            """.trimIndent()
 
                 signatureFile.writeText(signatureContent)
             } catch (e: Exception) {
-                println("Warning: Could not create real PGP signature: ${e.message}")
+                println("Warning: Could not create PGP signature: ${e.message}")
             }
         }
 
