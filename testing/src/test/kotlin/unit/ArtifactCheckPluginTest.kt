@@ -91,6 +91,17 @@ class ArtifactCheckPluginTest {
 
     @Test
     fun `checkProjectArtifact task should pass for vanniktech's gradle-maven-publish-plugin`() {
+        RealEnvironmentSetup.setupGpgHomeWithPgpKey(projectDir.toFile())
+
+        val gpgHome = projectDir.resolve("gnupg-home").toFile()
+        val privateKeyFile = projectDir.resolve("private.asc").toFile()
+
+        ProcessBuilder(
+            "gpg",
+            "--homedir", gpgHome.absolutePath,
+            "--import", privateKeyFile.absolutePath
+        ).start().waitFor()
+
         projectDir.resolve("gradle.properties").toFile().writeText(
             """
             signing.gnupg.executable=gpg
@@ -103,13 +114,15 @@ class ArtifactCheckPluginTest {
         )
 
         projectDir.resolve("src/main/java/").toFile().mkdirs();
-        projectDir.resolve("src/main/java/HelloWorld.java").toFile().writeText("""
+        projectDir.resolve("src/main/java/HelloWorld.java").toFile().writeText(
+            """
              public class HelloWorld {
                 public static void main(String[] args) {
                     System.out.println("Hello, World");
                 }
             }
-        """.trimIndent())
+        """.trimIndent()
+        )
 
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
