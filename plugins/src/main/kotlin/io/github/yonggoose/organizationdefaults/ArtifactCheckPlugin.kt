@@ -8,6 +8,7 @@ import org.gradle.plugins.signing.SigningExtension
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
 import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator
+import org.gradle.api.artifacts.PublishArtifactSet
 import java.io.File
 import java.io.FileInputStream
 import java.security.Security
@@ -139,6 +140,10 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         }
 
         val signingConfiguration = signing.configuration
+        if (signingConfiguration.artifacts.isEmpty()) {
+            errors.add("No artifacts found to verify PGP signatures. Ensure artifacts are configured for signing.")
+            return
+        }
         val signatureArtifacts = signingConfiguration.artifacts
 
         publishing.publications.forEach { publication ->
@@ -151,7 +156,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     private fun validateMavenPublicationSignatures(
         project: Project,
         publication: MavenPublication,
-        signatureArtifacts: org.gradle.api.artifacts.PublishArtifactSet,
+        signatureArtifacts: PublishArtifactSet,
         errors: MutableList<String>
     ) {
         project.logger.info("Validating PGP signatures for publication: ${publication.name}")
@@ -187,7 +192,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     private fun validatePomSignature(
         project: Project,
         publication: MavenPublication,
-        signatureArtifacts: org.gradle.api.artifacts.PublishArtifactSet,
+        signatureArtifacts: PublishArtifactSet,
         errors: MutableList<String>
     ) {
         project.logger.info("   - Checking POM signature")
@@ -244,7 +249,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     private fun findSignatureFileForArtifact(
         project: Project,
         artifactFile: File,
-        signatureArtifacts: org.gradle.api.artifacts.PublishArtifactSet
+        signatureArtifacts: PublishArtifactSet
     ): File? {
         val expectedSignatureName = "${artifactFile.name}.asc"
 

@@ -1,4 +1,3 @@
-// File: testing/src/test/kotlin/unit/ArtifactCheckPluginTest.kt
 package unit
 
 import common.RealEnvironmentSetup
@@ -17,17 +16,13 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ArtifactCheckPluginTest {
 
     @TempDir
     lateinit var projectDir: Path
-
-    @BeforeEach
-    fun setUp() {
-        RealEnvironmentSetup.generateRealPgpKeys(projectDir.toFile())
-    }
 
     @Test
     fun `checkProjectArtifact task should pass validation`() {
@@ -124,7 +119,7 @@ class ArtifactCheckPluginTest {
                 signing
                 id("com.vanniktech.maven.publish") version "0.34.0"
                 id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-                id("io.github.yonggoose.kotlin-pom-gradle-project") */
+                id("io.github.yonggoose.kotlin-pom-gradle-project")
             }
             
             application {
@@ -174,11 +169,15 @@ class ArtifactCheckPluginTest {
             """.trimIndent()
         )
 
-     //   RealEnvironmentSetup.generateRealSignedArtifacts(projectDir.toFile())
+        GradleRunner.create()
+            .withProjectDir(projectDir.toFile())
+            .withArguments("signMavenPublication", "--info")
+            .withPluginClasspath()
+            .build()
 
         val result = GradleRunner.create()
             .withProjectDir(projectDir.toFile())
-            .withArguments("build", "--info")
+            .withArguments("checkProjectArtifact", "--info")
             .withPluginClasspath()
             .build()
 
