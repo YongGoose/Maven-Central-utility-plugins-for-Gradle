@@ -1,22 +1,16 @@
 package unit
 
-import common.RealEnvironmentSetup
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.gradle.testkit.runner.UnexpectedBuildFailure
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.TimeUnit
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ArtifactCheckPluginTest {
@@ -91,16 +85,21 @@ class ArtifactCheckPluginTest {
 
     @Test
     fun `checkProjectArtifact task should pass for vanniktech's gradle-maven-publish-plugin`() {
-        RealEnvironmentSetup.setupGpgHomeWithPgpKey(projectDir.toFile())
-
-        val gpgHome = projectDir.resolve("gnupg-home").toFile()
+        val privateKeyResource = this::class.java.getResourceAsStream("/private.asc")
         val privateKeyFile = projectDir.resolve("private.asc").toFile()
+        privateKeyResource.use { input ->
+            privateKeyFile.outputStream().use { output ->
+                input?.copyTo(output)
+            }
+        }
 
         ProcessBuilder(
             "gpg",
-            "--homedir", gpgHome.absolutePath,
+            "--homedir", File(projectDir.toFile(), "gnupg-home").absolutePath,
             "--import", privateKeyFile.absolutePath
         ).start().waitFor()
+
+        println(privateKeyFile.absolutePath)
 
         projectDir.resolve("gradle.properties").toFile().writeText(
             """
@@ -108,8 +107,8 @@ class ArtifactCheckPluginTest {
             signing.gnupg.useLegacyGpg=true
             signing.gnupg.homeDir=gnupg-home
             signing.gnupg.optionsFile=gnupg-home/gpg.conf
-            signing.gnupg.keyName=24875D73
-            signing.gnupg.passphrase=gradle
+            signing.gnupg.keyName=60FC9DADE1E31CBC3E0FB016565A412999781129
+            signing.gnupg.passphrase=1234qwer
             """.trimIndent()
         )
 
