@@ -1,8 +1,6 @@
-package unit
-
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -163,7 +161,7 @@ class OrganizationDefaultsProjectPluginTest {
             .forwardOutput()
             .build()
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyPom")?.outcome)
+        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyPom")?.outcome)
     }
 
     @Test
@@ -343,6 +341,6 @@ class OrganizationDefaultsProjectPluginTest {
             .forwardOutput()
             .build()
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyPom")?.outcome)
+        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyPom")?.outcome)
     }
 }
