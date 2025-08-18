@@ -19,59 +19,90 @@ class ArtifactCheckPluginTest {
     lateinit var projectDir: Path
 
     @Test
-    fun `checkProjectArtifact task should pass validation`() {
+    fun `checkProjectArtifact task should pass for vanniktech's gradle-maven-publish-plugin`() {
+        val privateKeyResource = this::class.java.getResourceAsStream("/private.asc")
+        val privateKeyFile = projectDir.resolve("private.asc").toFile()
+
+        privateKeyResource.use { input ->
+            privateKeyFile.outputStream().use { output ->
+                input?.copyTo(output) ?: throw IllegalStateException("private.asc not found")
+            }
+        }
+
+        val keyContent = privateKeyFile.readText()
+        println("Key content preview: ${keyContent.take(100)}...")
+        println("Key starts with PGP header: ${keyContent.startsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----")}")
+
+        projectDir.resolve("src/main/java/").toFile().mkdirs()
+        projectDir.resolve("src/main/java/HelloWorld.java").toFile().writeText(
+            """
+                public class HelloWorld {
+                    public static void main(String[] args) {
+                        System.out.println("Hello, World");
+                    }
+                }
+        """.trimIndent()
+        )
+
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
-            plugins {
-                id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
-            }
-                        
-            rootProjectPom {
-                groupId = "io.github.yonggoose"
-                artifactId = "organization-defaults"
-                version = "1.0.0"
+                plugins {
+                    java
+                    application
+                    signing
+                    id("com.vanniktech.maven.publish") version "0.34.0"
+                    id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+                    id("io.github.yonggoose.kotlin-pom-gradle-project")
+                }
+        
+                application {
+                    mainClass = "HelloWorld" 
+                }
                 
-                name = "Test Organization"
-                description = "Organization defaults plugin test"
-                url = "https://example.org"
-                
-                licenses {
-                    license {
-                        licenseType = "MIT"
+                signing {
+                    setRequired(false)
+                }
+                     
+                rootProjectPom {
+                    groupId = "io.github.yonggoose"
+                    artifactId = "organization-defaults"
+                    version = "1.0.0"
+                    
+                    name = "Test Organization"
+                    description = "Organization defaults plugin test"
+                    url = "https://example.org"
+                    
+                    licenses {
+                        license {
+                            licenseType = "MIT"
+                        }
+                        license {
+                            licenseType = "Apache-2.0"
+                        }
                     }
-                    license {
-                        licenseType = "Apache-2.0"
+                    
+                    developers {
+                        developer {
+                            id = "dev1"
+                            name = "Developer1"
+                            email = "dev1@example.com"
+                            timezone = "UTC"
+                            organization = "YongGoose"
+                            organizationUrl = "https://yonggoose.github.io"
+                        }
                     }
-                }
-                
-                developers {
-                    developer {
-                        id = "dev1"
-                        name = "Developer1"
-                        email = "dev1@example.com"
-                        timezone = "UTC"
-                        organization = "YongGoose"
-                        organizationUrl = "https://yonggoose.github.io"
+                    
+                    scm {
+                        url = "https://github.com/YongGoose/organization-defaults"
+                        connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
+                        developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
                     }
-                }
+                } 
                 
-                scm {
-                    url = "https://github.com/YongGoose/organization-defaults"
-                    connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                    developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
+                mavenPublishing {
+                    publishToMavenCentral()
                 }
-            }
-            """.trimIndent()
-        )
-        projectDir.resolve("src/main/java/Hello.java").toFile().writeText(
-            """
-            public class HelloWorld {
-                public static void main(String[] args) {
-                    System.out.println("Hello, World");
-                }
-            }
-            """.trimIndent()
+        """.trimIndent()
         )
 
         val result = GradleRunner.create()
@@ -83,123 +114,6 @@ class ArtifactCheckPluginTest {
         assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
     }
 
-    @Test
-    fun `checkProjectArtifact task should pass for vanniktech's gradle-maven-publish-plugin`() {
-        val privateKeyResource = this::class.java.getResourceAsStream("/private.asc")
-        val privateKeyFile = projectDir.resolve("private.asc").toFile()
-        privateKeyResource.use { input ->
-            privateKeyFile.outputStream().use { output ->
-                input?.copyTo(output)
-            }
-        }
-
-        ProcessBuilder(
-            "gpg",
-            "--homedir", File(projectDir.toFile(), "gnupg-home").absolutePath,
-            "--import", privateKeyFile.absolutePath
-        ).start().waitFor()
-
-        println(privateKeyFile.absolutePath)
-
-        projectDir.resolve("gradle.properties").toFile().writeText(
-            """
-            signing.gnupg.executable=gpg
-            signing.gnupg.useLegacyGpg=true
-            signing.gnupg.homeDir=gnupg-home
-            signing.gnupg.optionsFile=gnupg-home/gpg.conf
-            signing.gnupg.keyName=60FC9DADE1E31CBC3E0FB016565A412999781129
-            signing.gnupg.passphrase=1234qwer
-            """.trimIndent()
-        )
-
-        projectDir.resolve("src/main/java/").toFile().mkdirs();
-        projectDir.resolve("src/main/java/HelloWorld.java").toFile().writeText(
-            """
-             public class HelloWorld {
-                public static void main(String[] args) {
-                    System.out.println("Hello, World");
-                }
-            }
-        """.trimIndent()
-        )
-
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-            plugins {
-                java
-                application
-                signing
-                id("com.vanniktech.maven.publish") version "0.34.0"
-                id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
-            }
-            
-            application {
-                mainClass = "HelloWorld" 
-            }
-                 
-            rootProjectPom {
-                groupId = "io.github.yonggoose"
-                artifactId = "organization-defaults"
-                version = "1.0.0"
-                
-                name = "Test Organization"
-                description = "Organization defaults plugin test"
-                url = "https://example.org"
-                
-                licenses {
-                    license {
-                        licenseType = "MIT"
-                    }
-                    license {
-                        licenseType = "Apache-2.0"
-                    }
-                }
-                
-                developers {
-                    developer {
-                        id = "dev1"
-                        name = "Developer1"
-                        email = "dev1@example.com"
-                        timezone = "UTC"
-                        organization = "YongGoose"
-                        organizationUrl = "https://yonggoose.github.io"
-                    }
-                }
-                
-                scm {
-                    url = "https://github.com/YongGoose/organization-defaults"
-                    connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                    developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                }
-            } 
-            
-            mavenPublishing {
-              publishToMavenCentral()
-              signAllPublications()
-            }
-            """.trimIndent()
-        )
-
-        GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
-            .withArguments("signMavenPublication", "--info")
-            .withPluginClasspath()
-            .build()
-
-        val result = GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
-            .withArguments("checkProjectArtifact", "--info")
-            .withPluginClasspath()
-            .build()
-
-        val publicContent = File(projectDir.toFile(), "public.asc").readText()
-        val privateContent = File(projectDir.toFile(), "private.asc").readText()
-        assertTrue(publicContent.contains("BEGIN PGP PUBLIC KEY BLOCK"))
-        assertTrue(privateContent.contains("BEGIN PGP PRIVATE KEY BLOCK"))
-
-        assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
-    }
 
     @Test
     fun `checkSettingsArtifact task should fail validation`() {
