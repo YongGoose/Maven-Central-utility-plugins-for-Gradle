@@ -19,19 +19,6 @@ class ArtifactCheckPluginTest {
 
     @Test
     fun `checkProjectArtifact task should pass`() {
-        val privateKeyResource = this::class.java.getResourceAsStream("/private.asc")
-        val privateKeyFile = projectDir.resolve("private.asc").toFile()
-
-        privateKeyResource.use { input ->
-            privateKeyFile.outputStream().use { output ->
-                input?.copyTo(output) ?: throw IllegalStateException("private.asc not found")
-            }
-        }
-
-        val keyContent = privateKeyFile.readText()
-        println("Key content preview: ${keyContent.take(100)}...")
-        println("Key starts with PGP header: ${keyContent.startsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----")}")
-
         projectDir.resolve("src/main/java/").toFile().mkdirs()
         projectDir.resolve("src/main/java/HelloWorld.java").toFile().writeText(
             """
