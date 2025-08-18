@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
-import java.io.File
 import java.nio.file.Path
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -19,7 +18,7 @@ class ArtifactCheckPluginTest {
     lateinit var projectDir: Path
 
     @Test
-    fun `checkProjectArtifact task should pass for vanniktech's gradle-maven-publish-plugin`() {
+    fun `checkProjectArtifact task should pass`() {
         val privateKeyResource = this::class.java.getResourceAsStream("/private.asc")
         val privateKeyFile = projectDir.resolve("private.asc").toFile()
 
@@ -158,5 +157,159 @@ class ArtifactCheckPluginTest {
                 .build()
         }
         assertTrue(exception.message?.contains("Validation failed") == true)
+    }
+
+    @Test
+    fun `should fail when groupId is invalid`() {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+        plugins {
+            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+            id("io.github.yonggoose.kotlin-pom-gradle-project")
+        }
+        rootProjectPom {
+            groupId = "invalidGroup"
+            artifactId = "organization-defaults"
+            version = "1.0.0"
+            name = "Test"
+            description = "desc"
+            url = "https://example.org"
+            licenses { license { licenseType = "MIT" } }
+            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
+            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
+        }
+        """
+        )
+        val exception = assertThrows<UnexpectedBuildFailure> {
+            GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withArguments("checkProjectArtifact")
+                .withPluginClasspath()
+                .build()
+        }
+        assertTrue(exception.message?.contains("Invalid groupId") == true)
+    }
+
+    @Test
+    fun `should fail when version ends with SNAPSHOT`() {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+        plugins {
+            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+            id("io.github.yonggoose.kotlin-pom-gradle-project")
+        }
+        rootProjectPom {
+            groupId = "io.github.yonggoose"
+            artifactId = "organization-defaults"
+            version = "1.0.0-SNAPSHOT"
+            name = "Test"
+            description = "desc"
+            url = "https://example.org"
+            licenses { license { licenseType = "MIT" } }
+            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
+            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
+        }
+        """
+        )
+        val exception = assertThrows<UnexpectedBuildFailure> {
+            GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withArguments("checkProjectArtifact")
+                .withPluginClasspath()
+                .build()
+        }
+        assertTrue(exception.message?.contains("Invalid version") == true)
+    }
+
+    @Test
+    fun `should fail when developer email is missing`() {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+        plugins {
+            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+            id("io.github.yonggoose.kotlin-pom-gradle-project")
+        }
+        rootProjectPom {
+            groupId = "io.github.yonggoose"
+            artifactId = "organization-defaults"
+            version = "1.0.0"
+            name = "Test"
+            description = "desc"
+            url = "https://example.org"
+            licenses { license { licenseType = "MIT" } }
+            developers { developer { name = "dev"; organization = "Org"; organizationUrl = "https://org.com" } }
+            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
+        }
+        """
+        )
+        val exception = assertThrows<UnexpectedBuildFailure> {
+            GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withArguments("checkProjectArtifact")
+                .withPluginClasspath()
+                .build()
+        }
+        assertTrue(exception.message?.contains("Invalid developer: Developer email is required") == true)
+    }
+
+    @Test
+    fun `should fail when licenseType is missing`() {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+        plugins {
+            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+            id("io.github.yonggoose.kotlin-pom-gradle-project")
+        }
+        rootProjectPom {
+            groupId = "io.github.yonggoose"
+            artifactId = "organization-defaults"
+            version = "1.0.0"
+            name = "Test"
+            description = "desc"
+            url = "https://example.org"
+            licenses { license { } }
+            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
+            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
+        }
+        """
+        )
+        val exception = assertThrows<UnexpectedBuildFailure> {
+            GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withArguments("checkProjectArtifact")
+                .withPluginClasspath()
+                .build()
+        }
+        assertTrue(exception.message?.contains("Invalid license: License name is required") == true)
+    }
+
+    @Test
+    fun `should fail when scm info is missing`() {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+        plugins {
+            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
+            id("io.github.yonggoose.kotlin-pom-gradle-project")
+        }
+        rootProjectPom {
+            groupId = "io.github.yonggoose"
+            artifactId = "organization-defaults"
+            version = "1.0.0"
+            name = "Test"
+            description = "desc"
+            url = "https://example.org"
+            licenses { license { licenseType = "MIT" } }
+            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
+        }
+        """
+        )
+        val exception = assertThrows<UnexpectedBuildFailure> {
+            GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withArguments("checkProjectArtifact")
+                .withPluginClasspath()
+                .build()
+        }
+        assertTrue(exception.message?.contains("Invalid SCM") == true)
     }
 }
