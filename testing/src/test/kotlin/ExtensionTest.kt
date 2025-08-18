@@ -1,8 +1,6 @@
-package unit
-
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -157,6 +155,6 @@ class ExtensionTest {
             .forwardOutput()
             .build()
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyExtension")?.outcome)
+        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyExtension")?.outcome)
     }
 }

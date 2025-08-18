@@ -1,10 +1,7 @@
-package unit
-
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.gradle.testkit.runner.UnexpectedBuildFailure
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
@@ -97,7 +94,7 @@ class ArtifactCheckPluginTest {
             .withPluginClasspath()
             .build()
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
+        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
     }
 
 
@@ -143,7 +140,7 @@ class ArtifactCheckPluginTest {
                 .withPluginClasspath()
                 .build()
         }
-        assertTrue(exception.message?.contains("Validation failed") == true)
+        Assertions.assertTrue(exception.message?.contains("Validation failed") == true)
     }
 
     @Test
@@ -174,7 +171,7 @@ class ArtifactCheckPluginTest {
                 .withPluginClasspath()
                 .build()
         }
-        assertTrue(exception.message?.contains("Invalid groupId") == true)
+        Assertions.assertTrue(exception.message?.contains("Invalid groupId") == true)
     }
 
     @Test
@@ -205,7 +202,7 @@ class ArtifactCheckPluginTest {
                 .withPluginClasspath()
                 .build()
         }
-        assertTrue(exception.message?.contains("Invalid version") == true)
+        Assertions.assertTrue(exception.message?.contains("Invalid version") == true)
     }
 
     @Test
@@ -236,7 +233,7 @@ class ArtifactCheckPluginTest {
                 .withPluginClasspath()
                 .build()
         }
-        assertTrue(exception.message?.contains("Invalid developer: Developer email is required") == true)
+        Assertions.assertTrue(exception.message?.contains("Invalid developer: Developer email is required") == true)
     }
 
     @Test
@@ -267,7 +264,7 @@ class ArtifactCheckPluginTest {
                 .withPluginClasspath()
                 .build()
         }
-        assertTrue(exception.message?.contains("Invalid license: License name is required") == true)
+        Assertions.assertTrue(exception.message?.contains("Invalid license: License name is required") == true)
     }
 
     @Test
@@ -297,6 +294,6 @@ class ArtifactCheckPluginTest {
                 .withPluginClasspath()
                 .build()
         }
-        assertTrue(exception.message?.contains("Invalid SCM") == true)
+        Assertions.assertTrue(exception.message?.contains("Invalid SCM") == true)
     }
 }
