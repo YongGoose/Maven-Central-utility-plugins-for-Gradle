@@ -37,10 +37,16 @@ class ExtensionTest {
                 
                 licenses {
                     license {
-                        licenseType = "MIT"
+                        name = "MIT License"
+                        url = "https://opensource.org/license/mit/"
+                        distribution = "repo"
+                        comments = "MIT License for open source projects"
                     }
                     license {
-                        licenseType = "Apache-2.0"
+                        name = "Apache License 2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0"
+                        distribution = "repo"
+                        comments = "Apache License for open source projects"
                     }
                 }
                 
@@ -116,8 +122,14 @@ class ExtensionTest {
                     check(pom.inceptionYear == "2023")
                     
                     check(pom.licenses.size == 2)
-                    check(pom.licenses[0].licenseType == "MIT")
-                    check(pom.licenses[1].licenseType == "Apache-2.0")
+                    check(pom.licenses[0].name == "MIT License")
+                    check(pom.licenses[0].url == "https://opensource.org/license/mit/")
+                    check(pom.licenses[0].distribution == "repo")
+                    check(pom.licenses[0].comments == "MIT License for open source projects")
+                    check(pom.licenses[1].name == "Apache License 2.0")
+                    check(pom.licenses[1].url == "https://www.apache.org/licenses/LICENSE-2.0")
+                    check(pom.licenses[1].distribution == "repo")
+                    check(pom.licenses[1].comments == "Apache License for open source projects")
 
                     check(pom.organization?.name == "YongGoose")
                     check(pom.organization?.url == "https://github.com/YongGoose")
