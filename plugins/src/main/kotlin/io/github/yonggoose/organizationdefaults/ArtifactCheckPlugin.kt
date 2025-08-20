@@ -239,14 +239,14 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
             project.logger.info("Basic PGP signature validation passed for: ${artifactFile.name}")
 
-            return verifyPgpSignatureWithBouncyCastle(artifactFile, signatureFile, project)
+            return verifyPgpSignaturePresenceWithBouncyCastle(artifactFile, signatureFile, project)
         } catch (e: Exception) {
             project.logger.error("Error during basic PGP signature verification for ${artifactFile.name}: ${e.message}")
             false
         }
     }
 
-    private fun verifyPgpSignatureWithBouncyCastle(
+    private fun verifyPgpSignaturePresenceWithBouncyCastle(
         artifactFile: File,
         signatureFile: File,
         project: Project
