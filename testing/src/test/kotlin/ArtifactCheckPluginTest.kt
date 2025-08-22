@@ -57,10 +57,16 @@ class ArtifactCheckPluginTest {
                     
                     licenses {
                         license {
-                            licenseType = "MIT"
+                            name = "MIT License"
+                            url = "https://opensource.org/licenses/MIT"
+                            distribution = "repo"
+                            comments = "MIT License for open source projects"
                         }
                         license {
-                            licenseType = "Apache-2.0"
+                            name = "Apache License 2.0"
+                            url = "https://www.apache.org/licenses/LICENSE-2.0"
+                            distribution = "repo"
+                            comments = "Apache License for open source projects"
                         }
                     }
                     
@@ -114,10 +120,16 @@ class ArtifactCheckPluginTest {
                 
                 licenses {
                     license {
-                        licenseType = "MIT"
+                        name = "MIT License"
+                        url = "https://opensource.org/licenses/MIT"
+                        distribution = "repo"
+                        comments = "MIT License for open source projects"
                     }
                     license {
-                        licenseType = "Apache-2.0"
+                        name = "Apache License 2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0"
+                        distribution = "repo"
+                        comments = "Apache License for open source projects"
                     }
                 }
                 
@@ -158,7 +170,6 @@ class ArtifactCheckPluginTest {
             name = "Test"
             description = "desc"
             url = "https://example.org"
-            licenses { license { licenseType = "MIT" } }
             developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
             scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
         }
@@ -189,7 +200,6 @@ class ArtifactCheckPluginTest {
             name = "Test"
             description = "desc"
             url = "https://example.org"
-            licenses { license { licenseType = "MIT" } }
             developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
             scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
         }
@@ -203,97 +213,5 @@ class ArtifactCheckPluginTest {
                 .build()
         }
         Assertions.assertTrue(exception.message?.contains("Invalid version") == true)
-    }
-
-    @Test
-    fun `should fail when developer email is missing`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-        plugins {
-            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-            id("io.github.yonggoose.kotlin-pom-gradle-project")
-        }
-        rootProjectPom {
-            groupId = "io.github.yonggoose"
-            artifactId = "organization-defaults"
-            version = "1.0.0"
-            name = "Test"
-            description = "desc"
-            url = "https://example.org"
-            licenses { license { licenseType = "MIT" } }
-            developers { developer { name = "dev"; organization = "Org"; organizationUrl = "https://org.com" } }
-            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
-        }
-        """
-        )
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("checkProjectArtifact")
-                .withPluginClasspath()
-                .build()
-        }
-        Assertions.assertTrue(exception.message?.contains("Invalid developer: Developer email is required") == true)
-    }
-
-    @Test
-    fun `should fail when licenseType is missing`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-        plugins {
-            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-            id("io.github.yonggoose.kotlin-pom-gradle-project")
-        }
-        rootProjectPom {
-            groupId = "io.github.yonggoose"
-            artifactId = "organization-defaults"
-            version = "1.0.0"
-            name = "Test"
-            description = "desc"
-            url = "https://example.org"
-            licenses { license { } }
-            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
-            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
-        }
-        """
-        )
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("checkProjectArtifact")
-                .withPluginClasspath()
-                .build()
-        }
-        Assertions.assertTrue(exception.message?.contains("Invalid license: License name is required") == true)
-    }
-
-    @Test
-    fun `should fail when scm info is missing`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-        plugins {
-            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-            id("io.github.yonggoose.kotlin-pom-gradle-project")
-        }
-        rootProjectPom {
-            groupId = "io.github.yonggoose"
-            artifactId = "organization-defaults"
-            version = "1.0.0"
-            name = "Test"
-            description = "desc"
-            url = "https://example.org"
-            licenses { license { licenseType = "MIT" } }
-            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
-        }
-        """
-        )
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("checkProjectArtifact")
-                .withPluginClasspath()
-                .build()
-        }
-        Assertions.assertTrue(exception.message?.contains("Invalid SCM") == true)
     }
 }

@@ -53,7 +53,6 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     }
 
     private fun validateMetadata(pom: OrganizationDefaults, errors: MutableList<String>) {
-        // GAV Coordinates validation
         val groupId = pom.groupId
         if (groupId == null || groupId.isBlank() || !groupId.matches(Regex("^[a-z]+(\\.[a-z][a-z0-9]*)+$"))) {
             errors.add("Invalid groupId: Must be in reverse domain name format or not be null or blank.")
@@ -66,53 +65,6 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         val version = pom.version
         if (version == null || (version.isBlank() || version.endsWith("-SNAPSHOT"))) {
             errors.add("Invalid version: The version must not be null, blank, or end with '-SNAPSHOT'.")
-        }
-
-        // Project Information validation
-        if (pom.name.isNullOrBlank()) {
-            errors.add("Invalid name: Project name is required.")
-        }
-        if (pom.description.isNullOrBlank()) {
-            errors.add("Invalid description: Project description is required.")
-        }
-        if (pom.url.isNullOrBlank()) {
-            errors.add("Invalid url: Project URL is required.")
-        }
-
-        // License validation
-        pom.licenses.forEach { license ->
-            if (license.licenseType.isNullOrBlank()) {
-                errors.add("Invalid license: License name is required.")
-            }
-        }
-
-        // Developer Info validation
-        pom.developers.forEach { developer ->
-            if (developer.name.isNullOrBlank()) {
-                errors.add("Invalid developer: Developer name is required.")
-            }
-            if (developer.email.isNullOrBlank()) {
-                errors.add("Invalid developer: Developer email is required.")
-            }
-            if (developer.organization.isNullOrBlank()) {
-                errors.add("Invalid developer: Organization is required.")
-            }
-            if (developer.organizationUrl.isNullOrBlank()) {
-                errors.add("Invalid developer: Organization URL is required.")
-            }
-        }
-
-        // SCM Information validation
-        pom.scm?.let { scm ->
-            if (scm.connection.isNullOrBlank()) {
-                errors.add("Invalid SCM: Read-only connection is required.")
-            }
-            if (scm.developerConnection.isNullOrBlank()) {
-                errors.add("Invalid SCM: Read/write connection is required.")
-            }
-            if (scm.url.isNullOrBlank()) {
-                errors.add("Invalid SCM: Web interface URL is required.")
-            }
         }
     }
 
@@ -287,14 +239,14 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
             project.logger.info("Basic PGP signature validation passed for: ${artifactFile.name}")
 
-            return verifyPgpSignatureWithBouncyCastle(artifactFile, signatureFile, project)
+            return verifyPgpSignaturePresenceWithBouncyCastle(artifactFile, signatureFile, project)
         } catch (e: Exception) {
             project.logger.error("Error during basic PGP signature verification for ${artifactFile.name}: ${e.message}")
             false
         }
     }
 
-    private fun verifyPgpSignatureWithBouncyCastle(
+    private fun verifyPgpSignaturePresenceWithBouncyCastle(
         artifactFile: File,
         signatureFile: File,
         project: Project
