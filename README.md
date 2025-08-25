@@ -54,7 +54,7 @@ Validate before publishing:
 
 The [Gradle Maven Publish Plugin (vanniktech)](https://github.com/vanniktech/gradle-maven-publish-plugin) is a popular choice for publishing Android and Kotlin libraries to **Maven Central, JCenter, and Nexus repositories**.
 
-`Maven-Central-utility-plugins-for-Gradle` works seamlessly with it, eliminating the need to duplicate POM configurations across modules.
+`Maven Central utility plugins for Gradle` works seamlessly with it, eliminating the need to duplicate POM configurations across modules.
 
 ```kotlin
 import io.github.yonggoose.organizationdefaults.OrganizationDefaults
@@ -93,7 +93,7 @@ afterEvaluate {
 }
 ```
 
-This integration shows how **centralized POM management** from **Maven-Central-utility-plugins-for-Gradle**
+This integration shows how **centralized POM management** from **Maven Central utility plugins for Gradle**
 can be directly reused inside **vanniktech-maven-publish**,
 making your publishing workflow cleaner and less error-prone.
 
