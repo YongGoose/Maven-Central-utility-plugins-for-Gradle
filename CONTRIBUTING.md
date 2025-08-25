@@ -1,4 +1,4 @@
-# Contributing to Maven-Central-utility-plugins-for-Gradle
+# Contributing to Maven Central-utility plugins for Gradle
 
 Thank you for your interest in contributing to the Maven-Central-utility-plugins-for-Gradle plugin! This document provides guidelines to help make the contribution process smooth and effective.
 
