@@ -34,8 +34,8 @@ class ArtifactCheckPluginTest {
                     application
                     signing
                     id("com.vanniktech.maven.publish") version "0.34.0"
-                    id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-                    id("io.github.yonggoose.kotlin-pom-gradle-project")
+                    id("io.github.yonggoose.maven.central.utility.plugin.check")
+                    id("io.github.yonggoose.maven.central.utility.plugin.project")
                 }
         
                 application {
@@ -109,8 +109,8 @@ class ArtifactCheckPluginTest {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
             plugins {
-                id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
+                id("io.github.yonggoose.maven.central.utility.plugin.check")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
             }
             
             rootProjectPom {
@@ -160,8 +160,8 @@ class ArtifactCheckPluginTest {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
         plugins {
-            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-            id("io.github.yonggoose.kotlin-pom-gradle-project")
+            id("io.github.yonggoose.maven.central.utility.plugin.check")
+            id("io.github.yonggoose.maven.central.utility.plugin.project")
         }
         rootProjectPom {
             groupId = "invalidGroup"
@@ -190,8 +190,8 @@ class ArtifactCheckPluginTest {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
         plugins {
-            id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-            id("io.github.yonggoose.kotlin-pom-gradle-project")
+            id("io.github.yonggoose.maven.central.utility.plugin.check")
+            id("io.github.yonggoose.maven.central.utility.plugin.project")
         }
         rootProjectPom {
             groupId = "io.github.yonggoose"

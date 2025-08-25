@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Ask a question
-    url: https://github.com/YongGoose/kotlin-pom-gradle/discussions
+    url: https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/discussions
     about: Ask the community for help

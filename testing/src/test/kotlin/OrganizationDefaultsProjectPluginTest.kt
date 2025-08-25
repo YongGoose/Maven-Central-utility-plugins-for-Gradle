@@ -30,7 +30,7 @@ class OrganizationDefaultsProjectPluginTest {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
              plugins {
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
              }
 
              rootProjectPom {
@@ -108,7 +108,7 @@ class OrganizationDefaultsProjectPluginTest {
             import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 
             plugins {
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
             }
 
             tasks.register("verifyPom") {
@@ -196,7 +196,7 @@ class OrganizationDefaultsProjectPluginTest {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
              plugins {
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
              }
 
              rootProjectPom {
@@ -272,7 +272,7 @@ class OrganizationDefaultsProjectPluginTest {
             import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 
             plugins {
-                id("io.github.yonggoose.kotlin-pom-gradle-project")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
             }
             
             projectPom {

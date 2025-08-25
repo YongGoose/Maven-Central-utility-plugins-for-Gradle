@@ -22,7 +22,7 @@ class ExtensionTest {
             }
             
             plugins {
-                id("io.github.yonggoose.kotlin-pom-gradle-setting")
+                id("io.github.yonggoose.maven.central.utility.plugin.setting")
             }
             
             rootProjectSetting {

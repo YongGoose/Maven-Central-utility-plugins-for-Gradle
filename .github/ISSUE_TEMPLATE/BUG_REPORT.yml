@@ -1,5 +1,5 @@
 name: Bug Report
-description: If you would like to report an issue to kotlin-pom-gradle, please use this template.
+description: If you would like to report an issue to Maven-Central-utility-plugins-for-Gradle, please use this template.
 
 body:
 - type: checkboxes
@@ -7,7 +7,7 @@ body:
     label: Check Ahead
     options:
     - label: >
-        I have searched the [issues](https://github.com/YongGoose/kotlin-pom-gradle/issues) of this repository and believe that this is not a duplicate.
+        I have searched the [issues](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues) of this repository and believe that this is not a duplicate.
       required: true
 
 - type: textarea

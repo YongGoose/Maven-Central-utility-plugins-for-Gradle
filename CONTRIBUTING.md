@@ -1,6 +1,6 @@
-# Contributing to kotlin-pom-gradle
+# Contributing to Maven-Central-utility-plugins-for-Gradle
 
-Thank you for your interest in contributing to the kotlin-pom-gradle plugin! This document provides guidelines to help make the contribution process smooth and effective.
+Thank you for your interest in contributing to the Maven-Central-utility-plugins-for-Gradle plugin! This document provides guidelines to help make the contribution process smooth and effective.
 
 ## Development Environment Setup
 
