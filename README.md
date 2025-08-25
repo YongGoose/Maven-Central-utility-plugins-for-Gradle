@@ -10,9 +10,9 @@ A Gradle plugin that makes managing Maven POM metadata **simple and consistent**
 
 ## 🚀 Features
 - Centralized **organization-wide POM management**
-- **Selective override** per submodule
-- **Maven POM-compatible structure** (`groupId`, `artifactId`, `version`, licenses, etc.)
-- **Artifact signing & validation** before publishing to Maven Central
+- **Selective override** per submodule / [Guide](docs/selective-override.md)
+- **Maven POM-compatible structure** (`groupId`, `artifactId`, `version`, licenses, etc.) / [Guide](docs/centralized-pom-management.md)
+- **Artifact signing & validation** before publishing to Maven Central / [Guide](docs/artifact-validation.md)
 
 ---
 
