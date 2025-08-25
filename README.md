@@ -1,4 +1,4 @@
-# Kotlin Pom Gradle Plugin
+# Maven Central utility plugins for Gradle
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-blue.svg)](https://kotlinlang.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8.0%2B-blue.svg)](https://gradle.org/)
