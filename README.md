@@ -53,8 +53,7 @@ Validate before publishing:
 
 ### Integration with Vanniktech Maven Publish Plugin
 
-The [Gradle Maven Publish Plugin (vanniktech)](https://github.com/vanniktech/gradle-maven-publish-plugin)  
-is a popular choice for publishing Android and Kotlin libraries to **Maven Central, JCenter, and Nexus repositories**.
+The [Gradle Maven Publish Plugin (vanniktech)](https://github.com/vanniktech/gradle-maven-publish-plugin) is a popular choice for publishing Android and Kotlin libraries to **Maven Central, JCenter, and Nexus repositories**.
 
 `kotlin-pom-gradle` works seamlessly with it, eliminating the need to duplicate POM configurations across modules.
 
