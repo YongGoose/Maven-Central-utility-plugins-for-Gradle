@@ -22,9 +22,9 @@ A Gradle plugin that makes managing Maven POM metadata **simple and consistent**
 
 ```kotlin
 plugins {
-  id("io.github.yonggoose.maven.central.utility.plugin..project") version "0.1.7" // Gradle plugin to apply organization-wide defaults to projects.
-  id("io.github.yonggoose.maven.central.utility.plugin..setting") version "0.1.7" // Gradle plugin to apply organization-wide defaults to settings.
-  id("io.github.yonggoose.maven.central.utility.plugin..check") version "0.1.7" // Gradle plugin to check artifacts.
+  id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7" // Gradle plugin to apply organization-wide defaults to projects.
+  id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7" // Gradle plugin to apply organization-wide defaults to settings.
+  id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7" // Gradle plugin to check artifacts.
 }
 ```
 
