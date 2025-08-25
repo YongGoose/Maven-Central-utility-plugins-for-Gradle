@@ -29,7 +29,7 @@ plugins {
 ```
 
 ### Dependency
-// Not yet published to Maven Central. (Will be available soon.)
+Not yet published to Maven Central. (Will be available soon.)
 
 ---
 ## ⚡ Quick Start
