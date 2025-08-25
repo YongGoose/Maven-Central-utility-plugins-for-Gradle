@@ -4,261 +4,104 @@
 [![Gradle](https://img.shields.io/badge/Gradle-8.0%2B-blue.svg)](https://gradle.org/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A Gradle plugin that makes managing your Maven POM metadata simple and effortless.
+A Gradle plugin that makes managing Maven POM metadata **simple and consistent** across multi-module projects.  
 
-## Features
+---
 
-- Define organization information once at the root project and automatically propagate to all submodules
-- Selectively override specific information in submodules as needed
-- Maven POM-compatible structure (groupId, artifactId, version, licenses, etc.)
-- Artifact signing verification before publishing
-  Add a `checkProjectArtifact` task to verify that all artifacts staged for publishing are properly signed, ensuring compliance with Maven Central requirements.
+## 🚀 Features
+- Centralized **organization-wide POM management**
+- **Selective override** per submodule
+- **Maven POM-compatible structure** (`groupId`, `artifactId`, `version`, licenses, etc.)
+- **Artifact signing & validation** before publishing to Maven Central
 
-## 1. Organization-wide POM Management Options
+---
 
-### Option 1: Using settings.gradle.kts
-
-Apply the plugin in your `settings.gradle.kts`:
+## 📦 Installation
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.kotlin-pom-gradle-setting") version "0.1.0"
-}
-
-rootProjectSetting {
-    groupId = "io.github.yonggoose"
-    artifactId = "my-project"
-    version = "1.0.0"
-    
-    name = "My Project"
-    description = "A sample project"
-    url = "https://github.com/YongGoose/my-project"
-    
-    licenses {
-        license {
-            licenseType = "Apache-2.0"
-        }
-    }
-    
-    organization {
-        name = "YongGoose"
-        url = "https://github.com/YongGoose"
-    }
-    
-    developers {
-        developer {
-            id = "yonggoose"
-            name = "Yongjun Hong"
-            email = "yongjunh@apache.org"
-        }
-    }
-    
-    inceptionYear = "2025"
-    
-    mailingLists {
-        mailingList {
-            name = "Developers"
-            subscribe = "dev-subscribe@example.org"
-            unsubscribe = "dev-unsubscribe@example.org"
-            post = "dev@example.org"
-            archive = "https://example.org/archive"
-        }
-    }
-    
-    issueManagement {
-        system = "GitHub"
-        url = "https://github.com/YongGoose/my-project/issues"
-    }
-    
-    scm {
-        url = "https://github.com/YongGoose/my-project"
-        connection = "scm:git:git@github.com:YongGoose/my-project.git"
-        developerConnection = "scm:git:git@github.com:YongGoose/my-project.git"
-    }
+  id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.6" // Gradle plugin to apply organization-wide defaults to projects.
+  id("io.github.yonggoose.kotlin-pom-gradle-setting") version "0.1.6" // Gradle plugin to apply organization-wide defaults to settings.
+  id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project") version "0.1.6" // Gradle plugin to check artifacts.
 }
 ```
 
-In your submodule's `build.gradle.kts`, you can access these settings:
-
+---
+## ⚡ Quick Start
+Minimal setup in `build.gradle.kts`:
 ```kotlin
-// Access the settings in any module
-tasks.register("printProjectInfo") {
-    doLast {
-        val service = gradle.sharedServices
-            .registrations
-            .named("rootProjectSetting")
-            .get()
-            .service
-            .get() as OrganizationDefaultsService
-            
-        val defaults = service.getDefaults()
-        println("Project name: ${defaults.name}")
-        println("Project group: ${defaults.groupId}")
-        println("Project version: ${defaults.version}")
-    }
-}
-```
-
-### Option 2: Using build.gradle.kts
-
-Apply the plugin in your root `build.gradle.kts`:
-
-```kotlin
-plugins {
-    id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.0"
-}
-
 rootProjectPom {
     groupId = "io.github.yonggoose"
     artifactId = "my-project"
     version = "1.0.0"
-    
     name = "My Project"
     description = "A sample project"
-    url = "https://github.com/YongGoose/my-project"
-    
-    licenses {
-        license {
-            licenseType = "Apache-2.0"
-        }
-    }
-    
-    organization {
-        name = "YongGoose"
-        url = "https://github.com/YongGoose"
-    }
-
-    developers {
-        developer {
-            id = "yonggoose"
-            name = "Yongjun Hong"
-            email = "yongjunh@apache.org"
-        }
-    }
-    
-    inceptionYear = "2025"
-    
-    mailingLists {
-        mailingList {
-            name = "Developers"
-            subscribe = "dev-subscribe@example.org"
-            unsubscribe = "dev-unsubscribe@example.org"
-            post = "dev@example.org"
-            archive = "https://example.org/archive"
-        }
-    }
-    
-    issueManagement {
-        system = "GitHub"
-        url = "https://github.com/YongGoose/my-project/issues"
-    }
-    
-    scm {
-        url = "https://github.com/YongGoose/my-project"
-        connection = "scm:git:git@github.com:YongGoose/my-project.git"
-        developerConnection = "scm:git:git@github.com:YongGoose/my-project.git"
-    }
 }
 ```
 
-In your submodule's `build.gradle.kts`, apply the plugin and override settings as needed:
-
+Validate before publishing:
 ```kotlin
-plugins {
-    id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.0"
-}
-
-// Override only what's needed
-projectPom {
-    artifactId = "my-submodule"
-    description = "A submodule of my project"
-    // Any other properties you need to override
-}
-
-// Access the merged values
-tasks.register("printProjectInfo") {
-    doLast {
-        val pom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
-        println("Project name: ${pom.name}")
-        println("Project group: ${pom.groupId}")
-        println("Project version: ${pom.version}")
-    }
-}
+./gradlew checkProjectArtifact
 ```
-<details>
-<summary>Data Structure</summary>
 
-- Basic information: groupId, artifactId, version, name, description, url, inceptionYear  
-- Organization information: name, url  
-- License details: licenseType  
-- Developers: id, name, email, url, organization, organizationUrl, timezone  
-- Mailing lists: name, subscribe, unsubscribe, post, archive  
-- Issue management: system, url  
-- SCM: connection, developerConnection, url
+## 🔗 Integration
 
-</details>
+### Integration with Vanniktech Maven Publish Plugin
 
-## 2. Artifact Signing & POM Validation
+The [Gradle Maven Publish Plugin (vanniktech)](https://github.com/vanniktech/gradle-maven-publish-plugin)  
+is a popular choice for publishing Android and Kotlin libraries to **Maven Central, JCenter, and Nexus repositories**.
 
-### Artifact Signing Verification
+`kotlin-pom-gradle` works seamlessly with it, eliminating the need to duplicate POM configurations across modules.
 
 ```kotlin
+import io.github.yonggoose.organizationdefaults.OrganizationDefaults
+
 plugins {
-    id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project")
-    id("io.github.yonggoose.kotlin-pom-gradle-project")
+    id("java")
+    id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.6"
+    id("com.vanniktech.maven.publish") version "0.34.0"
+    id("maven-publish")
 }
 
 rootProjectPom {
     groupId = "io.github.yonggoose"
     artifactId = "organization-defaults"
     version = "1.0.0"
+    ...
+}
 
-    name = "Test Organization"
-    description = "Organization defaults plugin test"
-    url = "https://example.org"
+afterEvaluate {
+    val mergedPom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
 
-    licenses {
-        license {
-            licenseType = "MIT"
+    mavenPublishing {
+        coordinates(
+            groupId = mergedPom.groupId,
+            artifactId = mergedPom.artifactId,
+            version = mergedPom.version
+        )
+
+        pom {
+            name.set(mergedPom.name)
+            description.set(mergedPom.description)
+            url.set(mergedPom.url)
+            ...
         }
-        license {
-            licenseType = "Apache-2.0"
-        }
-    }
-
-    developers {
-        developer {
-            id = "dev1"
-            name = "Developer1"
-            email = "dev1@example.com"
-            timezone = "UTC"
-            organization = "YongGoose"
-            organizationUrl = "https://yonggoose.github.io"
-        }
-    }
-
-    scm {
-        url = "https://github.com/YongGoose/organization-defaults"
-        connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-        developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
     }
 }
 ```
 
-After configuring your `build.gradle.kts` as above, simply run the following task to verify your artifacts:
+This integration shows how **centralized POM management** from **kotlin-pom-gradle**
+can be directly reused inside **vanniktech-maven-publish**,
+making your publishing workflow cleaner and less error-prone.
 
-```shell
-./gradlew checkProjectArtifact
-```
+---
 
-This will validate that all required POM fields and artifact signatures meet Maven Central requirements.  
-If any issues are found, the build will fail with detailed error messages.
+## 📚 Documentation
+➡️ [Blog Post](https://dev.to/gradle-community/centralized-pom-configuration-management-with-kotlin-pom-gradle-1kap) | [Demo Video](https://drive.google.com/file/d/1McNXyBdIQpEPqTn2ZRjnYJ4E8JNwHMZE/view)
 
-## Requirements
-
-- Gradle 8.0 or higher
+## ✅ Requirements
+- Gradle 8.0+
 - Kotlin DSL support
 
-## License
-
-Apache License, Version 2.0
+## 📄 License
+Apache License 2.0
