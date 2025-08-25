@@ -1,5 +1,5 @@
 name: Bug Report
-description: If you would like to report an issue to Maven-Central-utility-plugins-for-Gradle, please use this template.
+description: If you would like to report an issue to Maven Central utility plugins for Gradle, please use this template.
 
 body:
 - type: checkboxes
