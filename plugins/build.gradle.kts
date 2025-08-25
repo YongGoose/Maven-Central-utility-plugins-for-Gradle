@@ -23,7 +23,7 @@ tasks {
 }
 
 gradlePlugin {
-    website = "https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradlee"
+    website = "https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle"
     vcsUrl = "https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle.git"
 
     plugins {
