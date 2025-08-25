@@ -22,9 +22,9 @@ A Gradle plugin that makes managing Maven POM metadata **simple and consistent**
 
 ```kotlin
 plugins {
-  id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.6" // Gradle plugin to apply organization-wide defaults to projects.
-  id("io.github.yonggoose.kotlin-pom-gradle-setting") version "0.1.6" // Gradle plugin to apply organization-wide defaults to settings.
-  id("io.github.yonggoose.kotlin-pom-gradle-artifact-check-project") version "0.1.6" // Gradle plugin to check artifacts.
+  id("io.github.yonggoose.Maven-Central-utility-plugins-for-Gradle.project") version "0.1.7" // Gradle plugin to apply organization-wide defaults to projects.
+  id("io.github.yonggoose.Maven-Central-utility-plugins-for-Gradle.setting") version "0.1.7" // Gradle plugin to apply organization-wide defaults to settings.
+  id("io.github.yonggoose.Maven-Central-utility-plugins-for-Gradle.check") version "0.1.7" // Gradle plugin to check artifacts.
 }
 ```
 
@@ -55,14 +55,14 @@ Validate before publishing:
 
 The [Gradle Maven Publish Plugin (vanniktech)](https://github.com/vanniktech/gradle-maven-publish-plugin) is a popular choice for publishing Android and Kotlin libraries to **Maven Central, JCenter, and Nexus repositories**.
 
-`kotlin-pom-gradle` works seamlessly with it, eliminating the need to duplicate POM configurations across modules.
+`Maven-Central-utility-plugins-for-Gradle` works seamlessly with it, eliminating the need to duplicate POM configurations across modules.
 
 ```kotlin
 import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 
 plugins {
     id("java")
-    id("io.github.yonggoose.kotlin-pom-gradle-project") version "0.1.6"
+    id("io.github.yonggoose.Maven-Central-utility-plugins-for-Gradle.project") version "0.1.6"
     id("com.vanniktech.maven.publish") version "0.34.0"
     id("maven-publish")
 }
@@ -94,7 +94,7 @@ afterEvaluate {
 }
 ```
 
-This integration shows how **centralized POM management** from **kotlin-pom-gradle**
+This integration shows how **centralized POM management** from **Maven-Central-utility-plugins-for-Gradle**
 can be directly reused inside **vanniktech-maven-publish**,
 making your publishing workflow cleaner and less error-prone.
 
