@@ -23,12 +23,12 @@ tasks {
 }
 
 gradlePlugin {
-    website = "https://github.com/YongGoose/kotlin-pom-gradle"
-    vcsUrl = "https://github.com/YongGoose/kotlin-pom-gradle.git"
+    website = "https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle"
+    vcsUrl = "https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle.git"
 
     plugins {
         create("organizationDefaultsProject") {
-            id = "io.github.yonggoose.kotlin-pom-gradle-project"
+            id = "io.github.yonggoose.maven.central.utility.plugin.project"
             displayName = "Organization Defaults Project Plugin"
             description = "A Gradle plugin to apply organization-wide defaults to projects."
             tags = setOf("organization", "defaults")
@@ -36,7 +36,7 @@ gradlePlugin {
         }
 
         create("organizationDefaultsSetting") {
-            id = "io.github.yonggoose.kotlin-pom-gradle-setting"
+            id = "io.github.yonggoose.maven.central.utility.plugin.setting"
             displayName = "Organization Defaults Settings Plugin"
             description = "A Gradle plugin to apply organization-wide defaults to settings."
             tags = setOf("organization", "defaults", "settings")
@@ -44,7 +44,7 @@ gradlePlugin {
         }
 
         create("artifactCheckProject") {
-            id = "io.github.yonggoose.kotlin-pom-gradle-artifact-check-project"
+            id = "io.github.yonggoose.maven.central.utility.plugin.check"
             displayName = "Artifact Check Project Plugin"
             description = "A Gradle plugin to check artifacts against organization defaults."
             tags = setOf("organization", "defaults", "artifact", "check")
