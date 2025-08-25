@@ -127,7 +127,10 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
                 licenses(action = {
                     licenses.forEach { license ->
                         license {
-                            licenseType = license.licenseType
+                            name = license.name
+                            url = license.url
+                            distribution = license.distribution
+                            comments = license.comments
                         }
                     }
                 })

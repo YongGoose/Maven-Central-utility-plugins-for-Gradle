@@ -16,9 +16,6 @@ Thank you for your interest in contributing to the kotlin-pom-gradle plugin! Thi
 
 # Run tests
 ./gradlew test
-
-# Publish to local Maven repository for testing
-./gradlew publishToMavenLocal
 ```
 
 ## Coding Style

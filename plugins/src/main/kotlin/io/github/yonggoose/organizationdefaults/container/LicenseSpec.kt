@@ -6,9 +6,12 @@ import io.github.yonggoose.organizationdefaults.License
  * Specifies license information.
  */
 class LicenseSpec {
-    var licenseType: String? = null
+    var name: String? = null
+    var url: String? = null
+    var distribution: String? = null
+    var comments: String? = null
 
-    fun build() = License(licenseType)
+    fun build() = License(name, url, distribution, comments)
 }
 
 /**

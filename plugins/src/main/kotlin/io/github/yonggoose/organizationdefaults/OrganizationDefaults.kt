@@ -83,10 +83,16 @@ data class OrganizationDefaults(
 /**
  * Data class representing license information.
  *
- * @property licenseType The type of license.
+ * @property name The name of the license.
+ * @property url The URL of the license.
+ * @property distribution The distribution method of the license.
+ * @property comments Additional comments about the license.
  */
 data class License(
-    var licenseType: String? = null
+    var name: String? = null,
+    var url: String? = null,
+    var distribution: String? = null,
+    var comments: String? = null
 ) : Serializable
 
 /**
