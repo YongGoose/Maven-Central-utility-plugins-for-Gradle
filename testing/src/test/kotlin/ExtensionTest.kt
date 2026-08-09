@@ -173,7 +173,7 @@ class ExtensionTest {
                     check(pom.scm?.developerConnection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         )
 
         val result = GradleRunner.create()
