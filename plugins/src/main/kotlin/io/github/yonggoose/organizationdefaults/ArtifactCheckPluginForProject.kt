@@ -326,6 +326,25 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         return task.outputFile.orNull?.asFile?.takeIf { it.exists() }
     }
 
+    /**
+     * Resolves the generated POM for [publication] from its `GenerateMavenPom` task, falling back
+     * to the conventional output location. Returns `null` when the POM has not been generated.
+     */
+    private fun findPomFile(project: Project, publication: MavenPublication): File? {
+        val destination = project.tasks.withType(GenerateMavenPom::class.java)
+            .findByName(pomTaskNameFor(publication))
+            ?.destination
+        if (destination != null && destination.exists()) {
+            return destination
+        }
+
+        val conventional = File(
+            project.layout.buildDirectory.get().asFile,
+            "publications/${publication.name}/pom-default.xml"
+        )
+        return conventional.takeIf { it.exists() }
+    }
+
     private fun pomTaskNameFor(publication: MavenPublication): String =
         "$GENERATE_POM_TASK_PREFIX${capitalize(publication.name)}Publication"
 
