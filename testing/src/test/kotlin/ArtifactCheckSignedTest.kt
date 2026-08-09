@@ -23,10 +23,10 @@ import java.util.Date
 /**
  * The only test that drives a real signed build end to end.
  *
- * Every other TestKit case sets `signing { setRequired(false) }`, which returns from
- * `validatePgpSignatures` before a single `.asc` is looked at — so the signature matching, the
- * POM lookup and the conditional `Sign` dependency were entirely unexercised in a real Gradle
- * build. This signs with a throwaway in-memory key so those paths actually run.
+ * Every other TestKit case sets `signing { setRequired(false) }` and produces no signatures, so
+ * `validatePgpSignatures` returns before a single `.asc` is looked at — leaving the signature
+ * collection, the POM and module-metadata lookups and the verification itself unexercised in a
+ * real Gradle build. This signs with a throwaway in-memory key so those paths actually run.
  */
 class ArtifactCheckSignedTest {
 
@@ -65,6 +65,10 @@ class ArtifactCheckSignedTest {
     }
 
     private fun writeSignedProject() {
+        // Without a settings file Gradle walks up from the temp directory looking for one, and
+        // would silently join an enclosing build if the temp dir ever sat inside a project.
+        projectDir.resolve("settings.gradle.kts").toFile().writeText("rootProject.name = \"signed\"\n")
+
         projectDir.resolve("secring.asc").toFile().writeText(generateArmoredSecretKey())
 
         projectDir.resolve("src/main/java").toFile().mkdirs()
@@ -137,8 +141,8 @@ class ArtifactCheckSignedTest {
             "the Gradle Module Metadata signature was never inspected"
         )
 
-        // The conditional dependsOn(provider { ... }) has to have pulled Sign into the graph,
-        // otherwise the signatures would not exist yet and verification would have failed.
+        // The Sign dependency has to have pulled signing into the graph, otherwise the
+        // signatures would not exist yet and verification would have failed.
         Assertions.assertEquals(
             TaskOutcome.SUCCESS,
             result.task(":signMavenPublication")?.outcome,
@@ -147,6 +151,6 @@ class ArtifactCheckSignedTest {
     }
 
     // A "signature is missing" case cannot be staged here: deleting an .asc makes its Sign task
-    // out of date, so the next run simply regenerates it. That path is covered instead by
-    // PgpSignatureVerifierTest, which drives resolveSignatureFor and verify() directly.
+    // out of date, so the next run simply regenerates it. PgpSignatureVerifierTest drives verify()
+    // directly for those.
 }

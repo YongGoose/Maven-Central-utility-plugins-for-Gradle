@@ -15,9 +15,7 @@ import java.security.KeyPairGenerator
 import java.security.Security
 import java.util.Date
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -51,7 +49,7 @@ class PgpSignatureVerifierTest {
         signatureGenerator.init(PGPSignature.BINARY_DOCUMENT, keyPair.privateKey)
         signatureGenerator.update(source.readBytes())
 
-        val target = File(tempDir, PgpSignatureVerifier.signatureNameFor(source))
+        val target = File(tempDir, source.name + ".asc")
         // Close the file stream explicitly rather than relying on the BC wrappers to cascade:
         // a leaked handle keeps Windows from deleting the @TempDir, failing the test afterwards.
         target.outputStream().use { fileOut ->
@@ -74,7 +72,7 @@ class PgpSignatureVerifierTest {
     @Test
     fun `an empty signature file fails`() {
         val jar = artifact()
-        val empty = File(tempDir, PgpSignatureVerifier.signatureNameFor(jar)).apply { writeText("") }
+        val empty = File(tempDir, jar.name + ".asc").apply { writeText("") }
 
         val result = PgpSignatureVerifier.verify(jar, empty)
 
@@ -85,7 +83,7 @@ class PgpSignatureVerifierTest {
     @Test
     fun `a file without PGP armor markers fails`() {
         val jar = artifact()
-        val notASignature = File(tempDir, PgpSignatureVerifier.signatureNameFor(jar))
+        val notASignature = File(tempDir, jar.name + ".asc")
             .apply { writeText("this is definitely not a signature\n") }
 
         val result = PgpSignatureVerifier.verify(jar, notASignature)
@@ -154,94 +152,7 @@ class PgpSignatureVerifierTest {
         assertTrue(missingSignature.detail.contains("Signature file does not exist"), missingSignature.detail)
     }
 
-    @Test
-    fun `the sibling signature wins when publications produce identically named files`() {
-        // Every MavenPublication writes build/publications/<name>/pom-default.xml, so a build with
-        // several publications has several pom-default.xml.asc files. Keying on the name alone
-        // paired a POM with another publication's signature.
-        val pluginMavenPom = File(tempDir, "publications/pluginMaven/pom-default.xml")
-        val markerPom = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml")
-        val signatures = listOf(
-            File(tempDir, "publications/pluginMaven/pom-default.xml.asc"),
-            File(tempDir, "publications/pluginMarkerMaven/pom-default.xml.asc")
-        )
-
-        assertEquals(
-            signatures[0].absoluteFile,
-            PgpSignatureVerifier.resolveSignatureFor(pluginMavenPom, signatures)?.absoluteFile
-        )
-        assertEquals(
-            signatures[1].absoluteFile,
-            PgpSignatureVerifier.resolveSignatureFor(markerPom, signatures)?.absoluteFile
-        )
-    }
-
-    @Test
-    fun `a correctly named signature in another directory is never accepted`() {
-        // The dangerous case is a single candidate: sign only one of several publications and the
-        // unsigned ones each have exactly one same-named .asc lying around. A name-based fallback
-        // would pair them up and, since verification is structure-only, call them verified.
-        val unsignedPom = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml")
-        val otherPublication = listOf(File(tempDir, "publications/pluginMaven/pom-default.xml.asc"))
-
-        assertNull(
-            PgpSignatureVerifier.resolveSignatureFor(unsignedPom, otherPublication),
-            "a signature belonging to another publication must not satisfy this one"
-        )
-    }
-
-    @Test
-    fun `several same-named signatures with no sibling resolve to nothing`() {
-        val pom = File(tempDir, "publications/pluginMaven/pom-default.xml")
-        val decoys = listOf(
-            File(tempDir, "publications/otherA/pom-default.xml.asc"),
-            File(tempDir, "publications/otherB/pom-default.xml.asc")
-        )
-
-        assertNull(PgpSignatureVerifier.resolveSignatureFor(pom, decoys))
-    }
-
-    @Test
-    fun `misplaced candidates are reported but never returned as matches`() {
-        val pom = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml")
-        val sibling = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml.asc")
-        val elsewhere = File(tempDir, "publications/pluginMaven/pom-default.xml.asc")
-
-        assertEquals(
-            listOf(elsewhere.absoluteFile),
-            PgpSignatureVerifier.misplacedCandidatesFor(pom, listOf(elsewhere)).map { it.absoluteFile }
-        )
-        // The sibling is a real match, so it is not "misplaced".
-        assertEquals(
-            emptyList(),
-            PgpSignatureVerifier.misplacedCandidatesFor(pom, listOf(sibling))
-        )
-    }
-
-    @Test
-    fun `the sources jar signature never satisfies the main jar`() {
-        val mainJar = File(tempDir, "libs/my-library-1.0.0.jar")
-        val sourcesSignature = listOf(File(tempDir, "libs/my-library-1.0.0-sources.jar.asc"))
-
-        assertNull(PgpSignatureVerifier.resolveSignatureFor(mainJar, sourcesSignature))
-    }
-
-    @Test
-    fun `an empty signature set resolves to nothing`() {
-        assertNull(PgpSignatureVerifier.resolveSignatureFor(File(tempDir, "a.jar"), emptyList()))
-    }
-
-    @Test
-    fun `signature names are derived exactly, never by stripping the extension`() {
-        // The old prefix match paired foo-1.0.jar with foo-1.0-sources.jar.asc.
-        assertEquals("my-library-1.0.0.jar.asc", PgpSignatureVerifier.signatureNameFor(File("my-library-1.0.0.jar")))
-        assertEquals("pom-default.xml.asc", PgpSignatureVerifier.signatureNameFor(File("pom-default.xml")))
-
-        val mainJar = File("my-library-1.0.0.jar")
-        val sourcesJar = File("my-library-1.0.0-sources.jar")
-        assertFalse(
-            PgpSignatureVerifier.signatureNameFor(mainJar) == PgpSignatureVerifier.signatureNameFor(sourcesJar),
-            "the main jar and the sources jar must not resolve to the same signature"
-        )
-    }
+    // The signature-to-file pairing used to be derived here from file names and paths, and got
+    // it wrong three times. It now comes from Gradle's own `Signature.toSign`, so there is no
+    // matching logic left in this class to test -- see ArtifactCheckPluginForProject.collectSignatures.
 }

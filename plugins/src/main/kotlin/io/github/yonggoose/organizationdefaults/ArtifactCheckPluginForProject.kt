@@ -8,6 +8,7 @@ import org.gradle.api.publish.maven.tasks.GenerateMavenPom
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.plugins.signing.Sign
+import org.gradle.plugins.signing.Signature
 import org.gradle.plugins.signing.SigningExtension
 import java.io.File
 
@@ -106,7 +107,18 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         if (!extras.has(key)) {
             return null
         }
-        return extras.get(key) as? OrganizationDefaults
+
+        val value = extras.get(key)
+        if (value is OrganizationDefaults) {
+            return value
+        }
+        // Not "the plugin is missing" -- it ran and left something unrecognisable, which in
+        // practice means two versions of it on the build classpath under different classloaders.
+        throw IllegalStateException(
+            "'$key' on '${project.path}' holds a ${value?.javaClass?.name}, not an " +
+                "${OrganizationDefaults::class.java.name}. Check for more than one version of " +
+                "'io.github.yonggoose.maven.central.utility.plugin.project' on the build classpath."
+        )
     }
 
     /**
@@ -127,11 +139,6 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return false
         }
 
-        if (!signing.isRequired) {
-            project.logger.warn("Signing is not required. Skipping PGP signature verification.")
-            return false
-        }
-
         if (publishing.publications.isEmpty()) {
             project.logger.warn(
                 "No publications found in 'publishing' extension. Skipping PGP signature verification."
@@ -139,16 +146,25 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return false
         }
 
-        val signatureFiles = collectSignatureFiles(project, signing)
-        if (signatureFiles.isEmpty()) {
-            errors.add("No artifacts found to verify PGP signatures. Ensure artifacts are configured for signing.")
+        val signatures = collectSignatures(project, signing)
+        if (signatures.values.none { it.exists() }) {
+            // Gate on what was produced rather than on `isRequired`: a build that sets
+            // setRequired(false) but does have a signatory still signs everything, and throwing
+            // that verdict away would under-report.
+            if (!signing.isRequired) {
+                project.logger.warn(
+                    "Signing is not required and nothing was signed. Skipping PGP signature verification."
+                )
+                return false
+            }
+            errors.add("No PGP signatures were produced. Ensure the publications are configured for signing.")
             return false
         }
-        project.logger.info("Found ${signatureFiles.size} signature file(s): ${signatureFiles.map { it.name }.sorted()}")
+        project.logger.info("Found ${signatures.size} signature(s) for ${signatures.keys.map { it.name }.sorted()}")
 
         var filesInspected = 0
         publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
-            filesInspected += validateMavenPublicationSignatures(project, publication, signatureFiles, errors)
+            filesInspected += validateMavenPublicationSignatures(project, publication, signatures, errors)
         }
 
         if (filesInspected == 0) {
@@ -164,27 +180,39 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     }
 
     /**
-     * Gathers every signature this project produces.
+     * Maps each signed file to its signature, using the pairing Gradle already records.
      *
-     * `signing.configuration.artifacts` only carries signatures registered through `sign(Task)` or
-     * `sign(Configuration)`. `sign(publishing.publications)` — the setup Maven Central publishers
-     * actually use — attaches its signatures to the publication as derived artifacts and leaves
-     * the `signatures` configuration empty, so reading the configuration alone made this check
-     * report "No artifacts found to verify PGP signatures" for precisely the case it exists to
-     * cover. Take the `Sign` tasks' own outputs as well.
+     * Reading `Signature.toSign` is what makes this robust. Deriving the signature path instead —
+     * "the sibling named `<file>.asc`" — assumes an extension that `signing.signatureType` can
+     * change (a `BinarySignatureType` build emits `.sig`), and re-derives something Gradle knows
+     * exactly. It also removes the whole class of wrong-file pairing by construction: a signature
+     * can only ever be attributed to the file Gradle signed.
+     *
+     * Both sources are needed. `signing.configuration.artifacts` only carries signatures
+     * registered through `sign(Task)` / `sign(Configuration)`; `sign(publishing.publications)` —
+     * the setup Maven Central publishers actually use — attaches them to the publication and
+     * leaves that configuration empty.
      */
-    private fun collectSignatureFiles(project: Project, signing: SigningExtension): List<File> {
-        val files = LinkedHashSet<File>()
-        signing.configuration.artifacts.forEach { files.add(it.file) }
-        project.tasks.withType(Sign::class.java).forEach { files.addAll(it.signatureFiles.files) }
-        return files.toList()
+    private fun collectSignatures(project: Project, signing: SigningExtension): Map<File, File> {
+        val bySignedFile = LinkedHashMap<File, File>()
+
+        fun record(signature: Signature) {
+            val signed = signature.toSign ?: return
+            val signatureFile = signature.file ?: return
+            bySignedFile[signed.absoluteFile] = signatureFile
+        }
+
+        signing.configuration.artifacts.filterIsInstance<Signature>().forEach(::record)
+        project.tasks.withType(Sign::class.java).forEach { task -> task.signatures.forEach(::record) }
+
+        return bySignedFile
     }
 
     /** Returns how many files were actually examined, so the caller can tell a no-op apart. */
     private fun validateMavenPublicationSignatures(
         project: Project,
         publication: MavenPublication,
-        signatureFiles: List<File>,
+        signatures: Map<File, File>,
         errors: MutableList<String>
     ): Int {
         project.logger.info("Validating PGP signatures for publication: ${publication.name}")
@@ -192,7 +220,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         var inspected = 0
 
         publication.artifacts.forEach { artifact ->
-            verifyFileSignature(project, artifact.file, signatureFiles, "artifact", errors)
+            verifyFileSignature(project, artifact.file, signatures, "artifact", errors)
             inspected++
         }
 
@@ -201,7 +229,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         // GenerateModuleMetadata can be disabled -- so it is only checked when it was produced.
         val moduleFile = findModuleMetadataFile(project, publication)
         if (moduleFile != null) {
-            verifyFileSignature(project, moduleFile, signatureFiles, "module metadata", errors)
+            verifyFileSignature(project, moduleFile, signatures, "module metadata", errors)
             inspected++
         }
 
@@ -215,21 +243,20 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return inspected
         }
 
-        verifyFileSignature(project, pomFile, signatureFiles, "POM", errors)
+        verifyFileSignature(project, pomFile, signatures, "POM", errors)
         return inspected + 1
     }
 
     private fun verifyFileSignature(
         project: Project,
         file: File,
-        signatureFiles: List<File>,
+        signatures: Map<File, File>,
         kind: String,
         errors: MutableList<String>
     ) {
         if (!file.exists()) {
-            // Say what actually went wrong. Without a signatory the Sign tasks are left out of
-            // the graph, and with them the tasks that would have built this file, so blaming a
-            // missing signature here would point at the wrong thing.
+            // A safety net rather than an expected path: the task depends on the publication's
+            // artifacts, so they should already exist by the time this runs.
             errors.add(
                 "$kind '${file.name}' has not been built, so its signature could not be checked " +
                     "(expected the file at '${file.path}')."
@@ -237,22 +264,21 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return
         }
 
-        val signatureFile = PgpSignatureVerifier.resolveSignatureFor(file, signatureFiles)
+        val signatureFile = signatures[file.absoluteFile]
 
         if (signatureFile == null) {
-            val expected = PgpSignatureVerifier.expectedSignatureFor(file)
-            val misplaced = PgpSignatureVerifier.misplacedCandidatesFor(file, signatureFiles)
+            errors.add(
+                "No PGP signature is registered for $kind '${file.name}'. Maven Central requires " +
+                    "every published file to be signed."
+            )
+            return
+        }
 
-            // Same-named signatures elsewhere are never accepted, but naming them turns a bare
-            // "not found" into something actionable — usually a publication that was left unsigned
-            // next to one that was.
-            val hint = if (misplaced.isEmpty()) {
-                ""
-            } else {
-                " Signatures with that name exist elsewhere and were not used: " +
-                    misplaced.joinToString { it.path } + "."
-            }
-            errors.add("PGP signature not found for $kind '${file.name}' (expected '${expected.path}').$hint")
+        if (!signatureFile.exists()) {
+            errors.add(
+                "PGP signature for $kind '${file.name}' was never produced " +
+                    "(expected it at '${signatureFile.path}')."
+            )
             return
         }
 
@@ -282,11 +308,22 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         return conventional.takeIf { it.exists() }
     }
 
-    /** The generated Gradle Module Metadata for [publication], or `null` if it was not produced. */
+    /**
+     * The generated Gradle Module Metadata for [publication], or `null` if it is not part of the
+     * publication.
+     *
+     * The task's `enabled` flag is what decides that, not the file: disabling
+     * `GenerateModuleMetadata` on a project that published with it before leaves a stale
+     * `module.json` in `build/`, and keying off mere existence would then demand a signature for
+     * a file that is no longer published and therefore never signed.
+     */
     private fun findModuleMetadataFile(project: Project, publication: MavenPublication): File? {
         val taskName = "generateMetadataFileFor${capitalize(publication.name)}Publication"
-        val task = project.tasks.withType(GenerateModuleMetadata::class.java).findByName(taskName)
-        return task?.outputFile?.orNull?.asFile?.takeIf { it.exists() }
+        val task = project.tasks.withType(GenerateModuleMetadata::class.java)
+            .findByName(taskName)
+            ?.takeIf { it.enabled }
+            ?: return null
+        return task.outputFile.orNull?.asFile?.takeIf { it.exists() }
     }
 
     private fun pomTaskNameFor(publication: MavenPublication): String =
