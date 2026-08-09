@@ -27,22 +27,18 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             description =
                 "Verifies that all artifacts staged for publishing are signed and meet Maven Central requirements."
 
-            // The signatures and the POM only exist on disk once their producing tasks have run.
+            // The signatures, the POM and the module metadata only exist on disk once their
+            // producing tasks have run.
             //
-            // The Sign dependency is conditional: with no signatory configured, Gradle fails those
-            // tasks with "no configured signatory", and depending on them unconditionally would
-            // mean a contributor without GPG keys never sees the metadata report at all. Without
-            // a signatory the task still runs and reports the signatures as missing.
-            dependsOn(
-                project.provider {
-                    val signing = project.extensions.findByType(SigningExtension::class.java)
-                    if (signing?.signatory != null) {
-                        project.tasks.withType(Sign::class.java).toList()
-                    } else {
-                        emptyList()
-                    }
-                }
-            )
+            // This depends on Sign unconditionally. An earlier revision gated it on
+            // `signing.signatory != null` so that a contributor without keys still got the
+            // metadata report, but that predicate does not hold: GnupgSignatoryProvider
+            // (`useGpgCmd()`) always returns a signatory whether or not a secret key exists, and
+            // PgpSignatoryProvider *builds* one on access — reading and parsing the key ring, and
+            // throwing during task-graph resolution if the configured path is unusable, before
+            // any report could be printed. `signing { setRequired(false) }` is the supported way
+            // to run the metadata checks without keys.
+            dependsOn(project.tasks.withType(Sign::class.java))
             dependsOn(project.tasks.withType(GenerateMavenPom::class.java))
             dependsOn(project.tasks.withType(GenerateModuleMetadata::class.java))
 

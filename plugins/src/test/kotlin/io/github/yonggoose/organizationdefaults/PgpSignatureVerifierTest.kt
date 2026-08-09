@@ -101,8 +101,19 @@ class PgpSignatureVerifierTest {
 
         // Keep the BEGIN/END markers so the cheap text check still passes, and drop half of the
         // payload. This is the case the old catch block swallowed into a `true`.
+        //
+        // Slice by armor structure, not by line index: bcpg may or may not emit a `Version:`
+        // header, and an index-based slice silently turns "truncated payload" into "no payload"
+        // when it does.
         val lines = signature.readLines()
-        val truncated = lines.take(2) + lines.drop(2).dropLast(1).take(1) + lines.last()
+        val separator = lines.indexOfFirst { it.isBlank() }
+        val checksum = lines.indexOfLast { it.startsWith("=") }
+        assertTrue(separator in 0 until checksum, "unexpected armor layout: $lines")
+
+        val payload = lines.subList(separator + 1, checksum)
+        assertTrue(payload.size >= 2, "payload too short to truncate meaningfully: $payload")
+
+        val truncated = lines.take(separator + 1) + payload.take(payload.size / 2) + lines.drop(checksum)
         signature.writeText(truncated.joinToString("\n"))
 
         val result = PgpSignatureVerifier.verify(jar, signature)

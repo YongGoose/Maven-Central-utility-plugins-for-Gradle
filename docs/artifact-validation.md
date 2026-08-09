@@ -4,21 +4,31 @@ All artifacts published to Maven Central require a PGP signature, and the metada
 
 ### Usage
 
+The check plugin reads the metadata the **project** plugin produces and inspects the publications
+`maven-publish` and `signing` set up, so all four belong in the same build:
+
 ```kotlin
 plugins {
+    `maven-publish`
+    signing
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
     id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
 }
 ```
+
+Applying the check plugin on its own fails with
+`No merged POM metadata found for ':' …` — there is nothing for it to validate, and it will not
+silently fall back to another project's metadata.
 
 ```bash
 # Run the validation task
 ./gradlew checkProjectArtifact
 ```
 
-The task depends on the project's `GenerateMavenPom` tasks, and on its `Sign` tasks whenever a
-signatory is configured, so the files it inspects are produced first — there is no need to chain it
-after `publish` manually. Without a signatory the `Sign` dependency is dropped, so the task still
-runs and reports the missing signatures instead of failing inside Gradle's signing plugin.
+The task depends on the tasks that produce what it inspects — the publication's artifacts, its
+`GenerateMavenPom` and `GenerateModuleMetadata` tasks, and its `Sign` tasks — so there is no need
+to chain it after `publish` manually. On a machine without a usable signing key that means signing
+fails first; see [Current limitations](#current-limitations).
 
 In a multi-module build the task validates **the metadata of the project it runs in**, i.e. the
 result of merging `rootProjectPom` with that module's `projectPom`. Running
@@ -105,17 +115,26 @@ verified:
    (see the warnings above) — this run does not confirm the artifacts are signed.
 ```
 
-On a machine with **no signatory configured** (a contributor without GPG keys, or CI without the
-key), the `Sign` tasks are left out of the dependency graph so you still get the metadata report
-instead of Gradle's `Cannot perform signing task … no configured signatory`. The signature checks
-then fail, because the `.asc` files the publication declares were never produced:
+On a machine with **no usable signing key** (a contributor without GPG keys, or CI without the
+key), signing itself fails first and you get Gradle's own message rather than a validation report:
 
 ```
-Validation failed:
-PGP signature verification FAILED for POM 'pom-default.xml': Signature file does not exist: …/pom-default.xml.asc
+> Cannot perform signing task ':signMavenPublication' because it has no configured signatory
+```
+```
+gpg: signing failed: No secret key
 ```
 
-Set `signing { setRequired(false) }` if you want a clean metadata-only run on such a machine.
+That is unavoidable: the task has to depend on the `Sign` tasks for the signatures to exist at
+all, and there is no reliable way to tell in advance whether a configured signatory can actually
+sign — `useGpgCmd()` reports one whether or not a secret key is present. To run the metadata
+checks on such a machine, turn signing off:
+
+```kotlin
+signing {
+    setRequired(false)
+}
+```
 
 ## Integrated Usage Example
 
