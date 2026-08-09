@@ -64,16 +64,24 @@ Maven Central requires every published file to be signed. The plugin checks that
 
 1. A `.asc` signature exists for every artifact in each `MavenPublication`.
 2. The generated POM is signed too.
-3. Each signature file parses as a well-formed detached PGP signature (using BouncyCastle).
+3. The generated Gradle Module Metadata (`module.json`) is signed too, when it was produced.
+   It is published and checked at upload alongside the POM. Builds that disable
+   `GenerateModuleMetadata` are unaffected.
+4. Each signature file parses as a well-formed detached PGP signature (using BouncyCastle).
 
-Signature files are matched to their artifact **by exact name** — `foo-1.0.jar` is only ever paired
-with `foo-1.0.jar.asc`. A prefix match would let `foo-1.0-sources.jar.asc` stand in for the main
-jar, which would defeat the point of the check.
+A signature is accepted **only at the sibling path** — `foo-1.0.jar` is paired with
+`foo-1.0.jar.asc` sitting in the same directory, and with nothing else. Gradle always writes a
+signature beside the file it signs, so nothing else is ever the right answer, and looser matching
+has two ways to go wrong:
 
-Signatures are also matched **by full path**, not just by name. Every publication writes its POM
-to `build/publications/<name>/pom-default.xml`, so in a build with several publications the
-signatures are all called `pom-default.xml.asc`; keying on the name alone would pair a POM with
-another publication's signature. A bare-name match is accepted only when it is unambiguous.
+- matching by prefix lets `foo-1.0-sources.jar.asc` stand in for the main jar;
+- matching by bare name is unsafe even when there is exactly one candidate. Every publication
+  writes its POM to `build/publications/<name>/pom-default.xml`, so a build that signs one
+  publication and not another leaves the unsigned one with a single same-named
+  `pom-default.xml.asc` nearby — belonging to a different publication.
+
+Same-named files found elsewhere are listed in the "signature not found" message so the cause is
+visible, but they are never accepted as a match.
 
 Anything the plugin cannot read is reported as a failure rather than passed over. `PgpSignatureVerifier`
 returns a verdict instead of logging, so a signature file that is empty, lacks the armor markers,
