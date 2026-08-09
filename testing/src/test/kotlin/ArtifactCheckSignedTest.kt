@@ -129,6 +129,13 @@ class ArtifactCheckSignedTest {
             result.output.contains("PGP signature verified for POM pom-default.xml"),
             "the POM signature was never inspected"
         )
+        // Gradle Module Metadata is signed and uploaded alongside the POM. findModuleMetadataFile
+        // returns null when it was not produced, which would skip this silently -- assert it was
+        // genuinely checked rather than skipped.
+        Assertions.assertTrue(
+            result.output.contains("PGP signature verified for module metadata module.json"),
+            "the Gradle Module Metadata signature was never inspected"
+        )
 
         // The conditional dependsOn(provider { ... }) has to have pulled Sign into the graph,
         // otherwise the signatures would not exist yet and verification would have failed.
