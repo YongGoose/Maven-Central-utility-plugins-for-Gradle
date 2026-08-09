@@ -334,40 +334,37 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
      * The generated Gradle Module Metadata for [publication], or `null` when there is none to
      * check.
      *
-     * Requires both that the task is enabled and that the file is there, which covers
-     * `enabled = false`. It does **not** cover a task skipped by an `onlyIf` — Gradle disables
-     * module metadata that way for publications that cannot carry it — so a `build/` directory
-     * left over from when the publication *could* still holds a `module.json` that this will ask
-     * for a signature of. `./gradlew clean` clears it; there is no public API that reports an
-     * `onlyIf` verdict before execution.
+     * Decided by the task's outcome, not by the file. `checkProjectArtifact` depends on
+     * `GenerateModuleMetadata`, so by the time this runs the task has a final state: it either
+     * did work or was up to date (the metadata is part of the publication), or it was skipped —
+     * by `enabled = false`, or by the `onlyIf` Gradle uses for publications that cannot carry
+     * module metadata. Keying off `file.exists()` alone would demand a signature for a stale
+     * `module.json` left in `build/` by an earlier publication layout.
      */
     private fun findModuleMetadataFile(project: Project, publication: MavenPublication): File? {
         val taskName = "generateMetadataFileFor${capitalize(publication.name)}Publication"
         val task = project.tasks.withType(GenerateModuleMetadata::class.java)
             .findByName(taskName)
-            ?.takeIf { it.enabled }
+            ?.takeIf { it.state.didWork || it.state.upToDate }
             ?: return null
         return task.outputFile.orNull?.asFile?.takeIf { it.exists() }
     }
 
     /**
-     * Resolves the generated POM for [publication] from its `GenerateMavenPom` task, falling back
-     * to the conventional output location. Returns `null` when the POM has not been generated.
+     * The generated POM for [publication], or `null` when this build did not generate one.
+     *
+     * `maven-publish` creates a `GenerateMavenPom` task for every `MavenPublication` and this task
+     * depends on all of them, so the task's `destination` is the answer whenever there is one.
+     * There is deliberately no fallback to the conventional
+     * `build/publications/<name>/pom-default.xml` path: it could only ever be reached when this
+     * build did *not* produce that POM, i.e. when the file is left over from an earlier one, and
+     * validating a stale POM is worse than reporting that none was generated.
      */
-    private fun findPomFile(project: Project, publication: MavenPublication): File? {
-        val destination = project.tasks.withType(GenerateMavenPom::class.java)
+    private fun findPomFile(project: Project, publication: MavenPublication): File? =
+        project.tasks.withType(GenerateMavenPom::class.java)
             .findByName(pomTaskNameFor(publication))
             ?.destination
-        if (destination != null && destination.exists()) {
-            return destination
-        }
-
-        val conventional = File(
-            project.layout.buildDirectory.get().asFile,
-            "publications/${publication.name}/pom-default.xml"
-        )
-        return conventional.takeIf { it.exists() }
-    }
+            ?.takeIf { it.exists() }
 
     private fun pomTaskNameFor(publication: MavenPublication): String =
         "$GENERATE_POM_TASK_PREFIX${capitalize(publication.name)}Publication"
