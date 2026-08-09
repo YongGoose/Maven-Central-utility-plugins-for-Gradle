@@ -165,12 +165,12 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         }
         project.logger.info("Found ${signatures.size} signature(s) for ${signatures.keys.map { it.name }.sorted()}")
 
-        val outcome = PublicationSignatureOutcome()
+        val context = SignatureCheckContext(project, signatures, signing.isRequired, errors)
         publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
-            validateMavenPublicationSignatures(project, publication, signatures, signing.isRequired, errors, outcome)
+            validateMavenPublicationSignatures(context, publication)
         }
 
-        if (outcome.verified == 0) {
+        if (context.verified == 0) {
             // `publications` can be non-empty while holding no MavenPublication at all -- an
             // Ivy-only build, say. Claiming the signatures passed here would be the same
             // fail-open reporting this task exists to remove.
@@ -179,15 +179,27 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             )
             return SignatureCheck.SKIPPED
         }
-        return if (outcome.unsigned == 0) SignatureCheck.VERIFIED else SignatureCheck.PARTIAL
+        return if (context.unsigned == 0) SignatureCheck.VERIFIED else SignatureCheck.PARTIAL
     }
 
     /** How much of the signature check actually happened, so the task can report it truthfully. */
     private enum class SignatureCheck { VERIFIED, PARTIAL, SKIPPED }
 
-    /** Tally of files verified versus files left unsigned while signing was optional. */
-    private class PublicationSignatureOutcome {
+    /**
+     * Everything the per-file signature check needs, plus its running tally. Carrying it as one
+     * object keeps the call sites readable -- threading five invariant arguments through every
+     * file was worse.
+     */
+    private class SignatureCheckContext(
+        val project: Project,
+        val signatures: Map<File, File>,
+        val signingRequired: Boolean,
+        val errors: MutableList<String>
+    ) {
+        /** Files whose signature was found and parsed. */
         var verified: Int = 0
+
+        /** Files with no signature, tolerated because signing is not required. */
         var unsigned: Int = 0
     }
 
@@ -221,50 +233,39 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     }
 
     private fun validateMavenPublicationSignatures(
-        project: Project,
-        publication: MavenPublication,
-        signatures: Map<File, File>,
-        signingRequired: Boolean,
-        errors: MutableList<String>,
-        outcome: PublicationSignatureOutcome
+        context: SignatureCheckContext,
+        publication: MavenPublication
     ) {
-        project.logger.info("Validating PGP signatures for publication: ${publication.name}")
+        context.project.logger.info("Validating PGP signatures for publication: ${publication.name}")
 
         publication.artifacts.forEach { artifact ->
-            verifyFileSignature(project, publication, artifact.file, signatures, signingRequired, "artifact", errors, outcome)
+            verifyFileSignature(context, publication, artifact.file, "artifact")
         }
 
         // Gradle Module Metadata is published and signed alongside the POM, so a missing
         // module.json signature is rejected at upload just like a missing POM signature.
-        val moduleFile = findModuleMetadataFile(project, publication)
+        val moduleFile = findModuleMetadataFile(context.project, publication)
         if (moduleFile != null) {
-            verifyFileSignature(
-                project, publication, moduleFile, signatures, signingRequired, "module metadata", errors, outcome
-            )
+            verifyFileSignature(context, publication, moduleFile, "module metadata")
         }
 
-        val pomFile = findPomFile(project, publication)
+        val pomFile = findPomFile(context.project, publication)
         if (pomFile == null) {
-            val pomTaskName = pomTaskNameFor(publication)
-            errors.add(
+            context.errors.add(
                 "POM file for publication '${publication.name}' was not found, so its signature " +
-                    "could not be verified. Run '$pomTaskName' first."
+                    "could not be verified. Run '${pomTaskNameFor(publication)}' first."
             )
             return
         }
 
-        verifyFileSignature(project, publication, pomFile, signatures, signingRequired, "POM", errors, outcome)
+        verifyFileSignature(context, publication, pomFile, "POM")
     }
 
     private fun verifyFileSignature(
-        project: Project,
+        context: SignatureCheckContext,
         publication: MavenPublication,
         file: File,
-        signatures: Map<File, File>,
-        signingRequired: Boolean,
-        kind: String,
-        errors: MutableList<String>,
-        outcome: PublicationSignatureOutcome
+        kind: String
     ) {
         // Every publication writes its POM to build/publications/<name>/pom-default.xml, so the
         // file name alone cannot tell two publications apart in a report. Name both.
@@ -273,11 +274,11 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         if (!file.exists()) {
             // A safety net rather than an expected path: the task depends on the publication's
             // artifacts, so they should already exist by the time this runs.
-            errors.add("$subject has not been built, so its signature could not be checked.")
+            context.errors.add("$subject has not been built, so its signature could not be checked.")
             return
         }
 
-        val signatureFile = signatures[file.absoluteFile]
+        val signatureFile = context.signatures[file.absoluteFile]
 
         if (signatureFile == null || !signatureFile.exists()) {
             val problem = if (signatureFile == null) {
@@ -286,43 +287,25 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 "The PGP signature for $subject was never produced (expected it at '${signatureFile.path}')."
             }
 
-            if (signingRequired) {
-                errors.add("$problem Maven Central requires every published file to be signed.")
+            if (context.signingRequired) {
+                context.errors.add("$problem Maven Central requires every published file to be signed.")
             } else {
                 // `setRequired(false)` opted out of signing everything, so an absent signature is
                 // the user's choice. A *broken* one below still fails: that is never intentional.
-                project.logger.warn("$problem Signing is not required, so this is not an error.")
-                outcome.unsigned++
+                context.project.logger.warn("$problem Signing is not required, so this is not an error.")
+                context.unsigned++
             }
             return
         }
 
         val result = PgpSignatureVerifier.verify(file, signatureFile)
         if (result.isOk) {
-            project.logger.info("PGP signature verified for $kind ${file.name}. ${result.detail}")
-            outcome.verified++
+            context.project.logger.info("PGP signature verified for $kind ${file.name}. ${result.detail}")
+            context.verified++
         } else {
             // A broken signature fails regardless of `isRequired`: nobody opts into those.
-            errors.add("PGP signature verification FAILED for $subject: ${result.detail}")
+            context.errors.add("PGP signature verification FAILED for $subject: ${result.detail}")
         }
-    }
-
-    /**
-     * Resolves the generated POM for [publication] from its `GenerateMavenPom` task, falling back
-     * to the conventional output location. Returns `null` when the POM has not been generated.
-     */
-    private fun findPomFile(project: Project, publication: MavenPublication): File? {
-        val taskName = pomTaskNameFor(publication)
-        val destination = project.tasks.withType(GenerateMavenPom::class.java).findByName(taskName)?.destination
-        if (destination != null && destination.exists()) {
-            return destination
-        }
-
-        val conventional = File(
-            project.layout.buildDirectory.get().asFile,
-            "publications/${publication.name}/pom-default.xml"
-        )
-        return conventional.takeIf { it.exists() }
     }
 
     /**
