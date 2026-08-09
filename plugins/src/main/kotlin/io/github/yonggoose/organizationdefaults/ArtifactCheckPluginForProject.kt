@@ -115,24 +115,24 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return
         }
 
-        val signaturesByName: Map<String, File> = signatureArtifacts.associate { it.file.name to it.file }
-        project.logger.info("Found ${signaturesByName.size} signature file(s): ${signaturesByName.keys.sorted()}")
+        val signatureFiles: List<File> = signatureArtifacts.map { it.file }
+        project.logger.info("Found ${signatureFiles.size} signature file(s): ${signatureFiles.map { it.name }.sorted()}")
 
         publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
-            validateMavenPublicationSignatures(project, publication, signaturesByName, errors)
+            validateMavenPublicationSignatures(project, publication, signatureFiles, errors)
         }
     }
 
     private fun validateMavenPublicationSignatures(
         project: Project,
         publication: MavenPublication,
-        signaturesByName: Map<String, File>,
+        signatureFiles: List<File>,
         errors: MutableList<String>
     ) {
         project.logger.info("Validating PGP signatures for publication: ${publication.name}")
 
         publication.artifacts.forEach { artifact ->
-            verifyFileSignature(project, artifact.file, signaturesByName, "artifact", errors)
+            verifyFileSignature(project, artifact.file, signatureFiles, "artifact", errors)
         }
 
         val pomFile = findPomFile(project, publication)
@@ -145,21 +145,21 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return
         }
 
-        verifyFileSignature(project, pomFile, signaturesByName, "POM", errors)
+        verifyFileSignature(project, pomFile, signatureFiles, "POM", errors)
     }
 
     private fun verifyFileSignature(
         project: Project,
         file: File,
-        signaturesByName: Map<String, File>,
+        signatureFiles: List<File>,
         kind: String,
         errors: MutableList<String>
     ) {
-        val expectedSignatureName = PgpSignatureVerifier.signatureNameFor(file)
-        val signatureFile = signaturesByName[expectedSignatureName]
+        val signatureFile = resolveSignature(file, signatureFiles)
 
         if (signatureFile == null) {
-            errors.add("PGP signature not found for $kind '${file.name}' (expected '$expectedSignatureName').")
+            val expected = expectedSignatureFor(file)
+            errors.add("PGP signature not found for $kind '${file.name}' (expected '${expected.path}').")
             return
         }
 
@@ -170,6 +170,29 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             errors.add("PGP signature verification FAILED for $kind '${file.name}': ${result.detail}")
         }
     }
+
+    /**
+     * Finds the signature that belongs to [file], matching on the full path rather than the file
+     * name.
+     *
+     * Every `MavenPublication` writes its POM to `build/publications/<name>/pom-default.xml`, so
+     * in a build with more than one publication — `java-gradle-plugin` alone adds a marker
+     * publication per declared plugin — a name-keyed lookup collapses every `pom-default.xml.asc`
+     * onto a single entry and pairs the remaining POMs with another publication's signature.
+     *
+     * A bare name match is still accepted as a fallback for signing setups that write signatures
+     * somewhere other than beside the file, but only when it is unambiguous: pairing the wrong
+     * files is the failure mode this whole check exists to prevent.
+     */
+    private fun resolveSignature(file: File, signatureFiles: List<File>): File? {
+        val expected = expectedSignatureFor(file)
+        signatureFiles.firstOrNull { it.absoluteFile == expected }?.let { return it }
+
+        return signatureFiles.filter { it.name == expected.name }.singleOrNull()
+    }
+
+    private fun expectedSignatureFor(file: File): File =
+        File(file.absoluteFile.parentFile, PgpSignatureVerifier.signatureNameFor(file))
 
     /**
      * Resolves the generated POM for [publication] from its `GenerateMavenPom` task, falling back

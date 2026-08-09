@@ -19,8 +19,16 @@ object MavenCentralMetadataValidator {
      */
     private const val COORDINATE_SEGMENT = "[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?"
 
+    /** Central expects a reverse-DNS namespace, so at least one dot-separated segment. */
     private val groupIdPattern = Regex("^" + COORDINATE_SEGMENT + "(?:\\." + COORDINATE_SEGMENT + ")+\$")
-    private val artifactIdPattern = Regex("^" + COORDINATE_SEGMENT + "\$")
+
+    /**
+     * Maven's coordinate rule is `[A-Za-z0-9_\-.]+`, and dotted artifactIds are published on
+     * Central today (`org.osgi:org.osgi.core`, `org.eclipse.jdt:org.eclipse.jdt.core`). Only the
+     * groupId carries the reverse-DNS expectation; requiring the same shape here would reject
+     * artifacts that publish fine.
+     */
+    private val artifactIdPattern = Regex("^[A-Za-z0-9_](?:[A-Za-z0-9_.-]*[A-Za-z0-9_])?\$")
 
     fun validate(pom: OrganizationDefaults): List<String> {
         val errors = mutableListOf<String>()

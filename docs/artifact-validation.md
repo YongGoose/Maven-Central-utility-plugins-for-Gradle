@@ -60,37 +60,37 @@ Signature files are matched to their artifact **by exact name** — `foo-1.0.jar
 with `foo-1.0.jar.asc`. A prefix match would let `foo-1.0-sources.jar.asc` stand in for the main
 jar, which would defeat the point of the check.
 
-Anything the plugin cannot read is reported as a failure rather than passed over:
+Signatures are also matched **by full path**, not just by name. Every publication writes its POM
+to `build/publications/<name>/pom-default.xml`, so in a build with several publications the
+signatures are all called `pom-default.xml.asc`; keying on the name alone would pair a POM with
+another publication's signature. A bare-name match is accepted only when it is unambiguous.
 
-```kotlin
-private fun readSignatureList(project: Project, artifactFile: File, signatureFile: File): PGPSignatureList? {
-    return try {
-        FileInputStream(signatureFile).use { input ->
-            val decoded = PGPUtil.getDecoderStream(input)
-            val pgpFactory = PGPObjectFactory(decoded, JcaKeyFingerprintCalculator())
+Anything the plugin cannot read is reported as a failure rather than passed over. `PgpSignatureVerifier`
+returns a verdict instead of logging, so a signature file that is empty, lacks the armor markers,
+is truncated, or does not parse as a signature list all produce
+`SignatureVerification.failed(...)` — never a silent pass.
 
-            val obj = pgpFactory.nextObject()
-            if (obj !is PGPSignatureList) { /* report and return null */ }
-            if (obj.size() == 0) { /* report and return null */ }
-            obj
-        }
-    } catch (e: Exception) {
-        // Fail closed: an unreadable signature is not a verified signature.
-        project.logger.error("Could not read the PGP signature for ${artifactFile.name}: ${e.message}", e)
-        null
-    }
-}
-```
-
-### Current limitation
+### Current limitations
 
 The signature check validates **structure**, not cryptographic validity: the plugin does not yet
 verify a signature against a public key, so it cannot detect a well-formed signature produced over
 different content. Full verification is tracked in
 [#22](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/22).
 
-Note also that `signing { setRequired(false) }` skips signature verification entirely, with a
-warning — only the metadata checks run in that configuration.
+`signing { setRequired(false) }` skips signature verification entirely, with a warning — only the
+metadata checks run in that configuration. The same is true when the project declares no
+publications.
+
+Because the task depends on the `Sign` tasks, signing is **required by default** and a project with
+no signatory configured will fail in `Sign` before `checkProjectArtifact` gets to report anything:
+
+```
+> Cannot perform signing task ':signMavenPublication' because it has no configured signatory
+```
+
+That is Gradle's own message, not a validation failure. To get the metadata report on a machine
+without GPG keys, set `signing { setRequired(false) }` — Gradle then skips the `Sign` tasks and the
+plugin skips signature verification.
 
 ## Integrated Usage Example
 

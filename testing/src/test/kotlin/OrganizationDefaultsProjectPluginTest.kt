@@ -1,4 +1,4 @@
-﻿import org.gradle.testkit.runner.GradleRunner
+import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test

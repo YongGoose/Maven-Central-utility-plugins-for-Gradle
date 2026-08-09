@@ -65,14 +65,27 @@ class MavenCentralMetadataValidatorTest {
     }
 
     @Test
-    fun `artifactIds must be non-blank single segments`() {
-        for (artifactId in listOf("", "   ", "-leading", "trailing-")) {
+    fun `artifactIds must be non-blank and free of leading or trailing separators`() {
+        for (artifactId in listOf("", "   ", "-leading", "trailing-", ".leading", "trailing.")) {
             assertOnlyProblem(
                 MavenCentralMetadataValidator.validate(validPom(artifactId = artifactId)),
                 "Invalid artifactId"
             )
         }
         assertEquals(emptyList(), MavenCentralMetadataValidator.validate(validPom(artifactId = "my_lib-2")))
+    }
+
+    @Test
+    fun `dotted artifactIds are accepted`() {
+        // Unlike groupId, an artifactId carries no reverse-DNS expectation, and dotted ones are
+        // published on Central: org.osgi:org.osgi.core, org.eclipse.jdt:org.eclipse.jdt.core.
+        for (artifactId in listOf("org.osgi.core", "org.eclipse.jdt.core", "a")) {
+            assertEquals(
+                emptyList(),
+                MavenCentralMetadataValidator.validate(validPom(artifactId = artifactId)),
+                "expected '$artifactId' to be accepted"
+            )
+        }
     }
 
     @Test
