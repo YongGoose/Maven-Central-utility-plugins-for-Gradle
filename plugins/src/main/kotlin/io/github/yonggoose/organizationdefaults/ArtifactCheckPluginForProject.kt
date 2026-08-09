@@ -66,25 +66,28 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 val errors = mutableListOf<String>()
 
                 errors.addAll(MavenCentralMetadataValidator.validate(pom))
-                val signaturesInspected = validatePgpSignatures(project, errors)
+                val signatureCheck = validatePgpSignatures(project, errors)
 
                 if (errors.isNotEmpty()) {
                     throw IllegalArgumentException("Validation failed:\n${errors.joinToString("\n")}")
                 }
 
-                // Only claim the signatures passed when some were actually looked at. Saying
-                // otherwise is the same fail-open reporting this task exists to remove.
-                if (signaturesInspected) {
-                    project.logger.lifecycle(
-                        "✅ ArtifactCheckPlugin: metadata and PGP signatures verified successfully."
-                    )
-                } else {
-                    project.logger.lifecycle(
-                        "✅ ArtifactCheckPlugin: metadata validation passed. PGP signature " +
-                            "verification was SKIPPED (see the warnings above) — this run does not " +
-                            "confirm the artifacts are signed."
-                    )
-                }
+                // Report exactly how much was checked. Claiming more is the same fail-open
+                // reporting this task exists to remove.
+                project.logger.lifecycle(
+                    when (signatureCheck) {
+                        SignatureCheck.VERIFIED ->
+                            "✅ ArtifactCheckPlugin: metadata and PGP signatures verified successfully."
+                        SignatureCheck.PARTIAL ->
+                            "✅ ArtifactCheckPlugin: metadata validation passed and the PGP signatures " +
+                                "that exist were verified. Some files are unsigned (see the warnings " +
+                                "above); signing is not required, so they were not treated as errors."
+                        SignatureCheck.SKIPPED ->
+                            "✅ ArtifactCheckPlugin: metadata validation passed. PGP signature " +
+                                "verification was SKIPPED (see the warnings above) — this run does not " +
+                                "confirm the artifacts are signed."
+                    }
+                )
             }
         }
     }
@@ -121,61 +124,71 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     }
 
     /**
-     * Returns `true` when signatures were actually inspected, so the caller can avoid reporting a
-     * signature check that never ran.
+     * Reports how much of the signature check ran, so the caller never claims a verification that
+     * did not happen.
+     *
+     * A signature that is present but broken is always an error. A signature that is *absent* is
+     * an error only when `signing.isRequired`: a build that opted out of required signing has not
+     * asked for every file to be signed, and failing it would defeat the opt-out.
      */
-    private fun validatePgpSignatures(project: Project, errors: MutableList<String>): Boolean {
+    private fun validatePgpSignatures(project: Project, errors: MutableList<String>): SignatureCheck {
         val publishing = project.extensions.findByType(PublishingExtension::class.java)
         val signing = project.extensions.findByType(SigningExtension::class.java)
 
         if (publishing == null) {
             errors.add("'maven-publish' plugin not found. PGP signature verification cannot be performed.")
-            return false
+            return SignatureCheck.SKIPPED
         }
         if (signing == null) {
             // This is a failure, not a skip: Maven Central will not accept unsigned artifacts.
             errors.add("'signing' plugin not applied. Maven Central requires every published file to be signed.")
-            return false
+            return SignatureCheck.SKIPPED
         }
 
         if (publishing.publications.isEmpty()) {
             project.logger.warn(
                 "No publications found in 'publishing' extension. Skipping PGP signature verification."
             )
-            return false
+            return SignatureCheck.SKIPPED
         }
 
         val signatures = collectSignatures(project, signing)
         if (signatures.values.none { it.exists() }) {
-            // Gate on what was produced rather than on `isRequired`: a build that sets
-            // setRequired(false) but does have a signatory still signs everything, and throwing
-            // that verdict away would under-report.
             if (!signing.isRequired) {
                 project.logger.warn(
                     "Signing is not required and nothing was signed. Skipping PGP signature verification."
                 )
-                return false
+                return SignatureCheck.SKIPPED
             }
             errors.add("No PGP signatures were produced. Ensure the publications are configured for signing.")
-            return false
+            return SignatureCheck.SKIPPED
         }
         project.logger.info("Found ${signatures.size} signature(s) for ${signatures.keys.map { it.name }.sorted()}")
 
-        var filesInspected = 0
+        val outcome = PublicationSignatureOutcome()
         publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
-            filesInspected += validateMavenPublicationSignatures(project, publication, signatures, errors)
+            validateMavenPublicationSignatures(project, publication, signatures, signing.isRequired, errors, outcome)
         }
 
-        if (filesInspected == 0) {
+        if (outcome.verified == 0) {
             // `publications` can be non-empty while holding no MavenPublication at all -- an
             // Ivy-only build, say. Claiming the signatures passed here would be the same
             // fail-open reporting this task exists to remove.
             project.logger.warn(
                 "No Maven publication files were inspected. Skipping PGP signature verification."
             )
-            return false
+            return SignatureCheck.SKIPPED
         }
-        return true
+        return if (outcome.unsigned == 0) SignatureCheck.VERIFIED else SignatureCheck.PARTIAL
+    }
+
+    /** How much of the signature check actually happened, so the task can report it truthfully. */
+    private enum class SignatureCheck { VERIFIED, PARTIAL, SKIPPED }
+
+    /** Tally of files verified versus files left unsigned while signing was optional. */
+    private class PublicationSignatureOutcome {
+        var verified: Int = 0
+        var unsigned: Int = 0
     }
 
     /**
@@ -207,29 +220,27 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         return bySignedFile
     }
 
-    /** Returns how many files were actually examined, so the caller can tell a no-op apart. */
     private fun validateMavenPublicationSignatures(
         project: Project,
         publication: MavenPublication,
         signatures: Map<File, File>,
-        errors: MutableList<String>
-    ): Int {
+        signingRequired: Boolean,
+        errors: MutableList<String>,
+        outcome: PublicationSignatureOutcome
+    ) {
         project.logger.info("Validating PGP signatures for publication: ${publication.name}")
 
-        var inspected = 0
-
         publication.artifacts.forEach { artifact ->
-            verifyFileSignature(project, artifact.file, signatures, "artifact", errors)
-            inspected++
+            verifyFileSignature(project, publication, artifact.file, signatures, signingRequired, "artifact", errors, outcome)
         }
 
         // Gradle Module Metadata is published and signed alongside the POM, so a missing
-        // module.json.asc is rejected at upload just like a missing pom.asc. It is optional --
-        // GenerateModuleMetadata can be disabled -- so it is only checked when it was produced.
+        // module.json signature is rejected at upload just like a missing POM signature.
         val moduleFile = findModuleMetadataFile(project, publication)
         if (moduleFile != null) {
-            verifyFileSignature(project, moduleFile, signatures, "module metadata", errors)
-            inspected++
+            verifyFileSignature(
+                project, publication, moduleFile, signatures, signingRequired, "module metadata", errors, outcome
+            )
         }
 
         val pomFile = findPomFile(project, publication)
@@ -239,53 +250,60 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 "POM file for publication '${publication.name}' was not found, so its signature " +
                     "could not be verified. Run '$pomTaskName' first."
             )
-            return inspected
+            return
         }
 
-        verifyFileSignature(project, pomFile, signatures, "POM", errors)
-        return inspected + 1
+        verifyFileSignature(project, publication, pomFile, signatures, signingRequired, "POM", errors, outcome)
     }
 
     private fun verifyFileSignature(
         project: Project,
+        publication: MavenPublication,
         file: File,
         signatures: Map<File, File>,
+        signingRequired: Boolean,
         kind: String,
-        errors: MutableList<String>
+        errors: MutableList<String>,
+        outcome: PublicationSignatureOutcome
     ) {
+        // Every publication writes its POM to build/publications/<name>/pom-default.xml, so the
+        // file name alone cannot tell two publications apart in a report. Name both.
+        val subject = "$kind of publication '${publication.name}' at '${file.path}'"
+
         if (!file.exists()) {
             // A safety net rather than an expected path: the task depends on the publication's
             // artifacts, so they should already exist by the time this runs.
-            errors.add(
-                "$kind '${file.name}' has not been built, so its signature could not be checked " +
-                    "(expected the file at '${file.path}')."
-            )
+            errors.add("$subject has not been built, so its signature could not be checked.")
             return
         }
 
         val signatureFile = signatures[file.absoluteFile]
 
-        if (signatureFile == null) {
-            errors.add(
-                "No PGP signature is registered for $kind '${file.name}'. Maven Central requires " +
-                    "every published file to be signed."
-            )
-            return
-        }
+        if (signatureFile == null || !signatureFile.exists()) {
+            val problem = if (signatureFile == null) {
+                "No PGP signature is registered for $subject."
+            } else {
+                "The PGP signature for $subject was never produced (expected it at '${signatureFile.path}')."
+            }
 
-        if (!signatureFile.exists()) {
-            errors.add(
-                "PGP signature for $kind '${file.name}' was never produced " +
-                    "(expected it at '${signatureFile.path}')."
-            )
+            if (signingRequired) {
+                errors.add("$problem Maven Central requires every published file to be signed.")
+            } else {
+                // `setRequired(false)` opted out of signing everything, so an absent signature is
+                // the user's choice. A *broken* one below still fails: that is never intentional.
+                project.logger.warn("$problem Signing is not required, so this is not an error.")
+                outcome.unsigned++
+            }
             return
         }
 
         val result = PgpSignatureVerifier.verify(file, signatureFile)
         if (result.isOk) {
             project.logger.info("PGP signature verified for $kind ${file.name}. ${result.detail}")
+            outcome.verified++
         } else {
-            errors.add("PGP signature verification FAILED for $kind '${file.name}': ${result.detail}")
+            // A broken signature fails regardless of `isRequired`: nobody opts into those.
+            errors.add("PGP signature verification FAILED for $subject: ${result.detail}")
         }
     }
 

@@ -105,10 +105,17 @@ verify a signature against a public key, so it cannot detect a well-formed signa
 different content. Full verification is tracked in
 [#22](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/22).
 
-`signing { setRequired(false) }` skips signature verification entirely, with a warning — only the
-metadata checks run in that configuration. The same is true when the project declares no
-publications. In both cases the task says so explicitly rather than reporting the signatures as
-verified:
+`signing { setRequired(false) }` means an **unsigned file is not an error**. What the task does
+then depends on what got signed anyway:
+
+| Situation | Result |
+|---|---|
+| Nothing was signed | Signature verification is skipped entirely; only the metadata checks run. |
+| Some files were signed | Those signatures are verified; unsigned files are reported as warnings. |
+| A signature exists but is broken | **Still an error.** Nobody opts into a corrupt signature. |
+
+The same skip applies when the project declares no publications. In every case the task states
+which of these happened rather than reporting the signatures as verified:
 
 ```
 ✅ ArtifactCheckPlugin: metadata validation passed. PGP signature verification was SKIPPED

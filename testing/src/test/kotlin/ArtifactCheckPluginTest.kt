@@ -24,6 +24,8 @@ class ArtifactCheckPluginTest {
     lateinit var projectDir: Path
 
     private fun buildScript(content: String) {
+        projectDir.resolve("settings.gradle.kts").toFile()
+            .writeText(PomFixture.singleProjectSettings("artifact-check"))
         projectDir.resolve("build.gradle.kts").toFile().writeText(content)
     }
 

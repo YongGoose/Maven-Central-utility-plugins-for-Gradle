@@ -78,9 +78,10 @@ Validate before publishing:
 ./gradlew checkProjectArtifact
 ```
 
-The signature checks need a publication to sign and a signatory to sign it with; without one the
-task still reports on the metadata and tells you the signature verification was skipped. See the
-[artifact validation guide](docs/artifact-validation.md) for the details.
+The task depends on the `Sign` tasks, so on a machine with no signing key Gradle's signing plugin
+fails before any report is produced. Add `signing { setRequired(false) }` there to get a
+metadata-only run. See the [artifact validation guide](docs/artifact-validation.md) for what is
+checked and what is skipped.
 
 ## 🔗 Integration
 

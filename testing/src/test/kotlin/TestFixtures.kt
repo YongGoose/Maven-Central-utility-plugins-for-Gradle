@@ -50,6 +50,14 @@ object PomFixture {
         }
         """.trimIndent()
 
+    /**
+     * `settings.gradle.kts` for a standalone build.
+     *
+     * Without one, Gradle walks up from the `@TempDir` looking for a settings file and would
+     * silently join an enclosing build if the temp directory ever sat inside a project.
+     */
+    fun singleProjectSettings(name: String): String = "rootProject.name = \"$name\"\n"
+
     /** `settings.gradle.kts` for a `root` + `sub` build that resolves plugins from the test classpath. */
     fun multiModuleSettings(): String =
         """

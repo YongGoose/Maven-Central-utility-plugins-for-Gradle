@@ -65,9 +65,8 @@ class ArtifactCheckSignedTest {
     }
 
     private fun writeSignedProject() {
-        // Without a settings file Gradle walks up from the temp directory looking for one, and
-        // would silently join an enclosing build if the temp dir ever sat inside a project.
-        projectDir.resolve("settings.gradle.kts").toFile().writeText("rootProject.name = \"signed\"\n")
+        projectDir.resolve("settings.gradle.kts").toFile()
+            .writeText(PomFixture.singleProjectSettings("signed"))
 
         projectDir.resolve("secring.asc").toFile().writeText(generateArmoredSecretKey())
 
