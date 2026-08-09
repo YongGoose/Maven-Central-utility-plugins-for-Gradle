@@ -81,12 +81,18 @@ plugins {
 }
 ```
 
-A convenient alternative for a multi-module build is to apply it to every project at once:
+A convenient alternative for a multi-module build is to apply it to every project at once. Use
+`allprojects`, not `subprojects` — the root needs the plugin too, since that is what registers the
+`rootProjectPom` extension holding the organization-wide defaults:
 
 ```kotlin
 // build.gradle.kts
-subprojects {
+allprojects {
     apply(plugin = "io.github.yonggoose.maven.central.utility.plugin.project")
+}
+
+rootProjectPom {
+    // organization-wide defaults
 }
 ```
 

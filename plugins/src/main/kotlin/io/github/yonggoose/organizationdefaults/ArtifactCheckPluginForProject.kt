@@ -151,22 +151,37 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         val signatureFiles: List<File> = signatureArtifacts.map { it.file }
         project.logger.info("Found ${signatureFiles.size} signature file(s): ${signatureFiles.map { it.name }.sorted()}")
 
+        var filesInspected = 0
         publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
-            validateMavenPublicationSignatures(project, publication, signatureFiles, errors)
+            filesInspected += validateMavenPublicationSignatures(project, publication, signatureFiles, errors)
+        }
+
+        if (filesInspected == 0) {
+            // `publications` can be non-empty while holding no MavenPublication at all -- an
+            // Ivy-only build, say. Claiming the signatures passed here would be the same
+            // fail-open reporting this task exists to remove.
+            project.logger.warn(
+                "No Maven publication files were inspected. Skipping PGP signature verification."
+            )
+            return false
         }
         return true
     }
 
+    /** Returns how many files were actually examined, so the caller can tell a no-op apart. */
     private fun validateMavenPublicationSignatures(
         project: Project,
         publication: MavenPublication,
         signatureFiles: List<File>,
         errors: MutableList<String>
-    ) {
+    ): Int {
         project.logger.info("Validating PGP signatures for publication: ${publication.name}")
+
+        var inspected = 0
 
         publication.artifacts.forEach { artifact ->
             verifyFileSignature(project, artifact.file, signatureFiles, "artifact", errors)
+            inspected++
         }
 
         val pomFile = findPomFile(project, publication)
@@ -176,10 +191,11 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 "POM file for publication '${publication.name}' was not found, so its signature " +
                     "could not be verified. Run '$pomTaskName' first."
             )
-            return
+            return inspected
         }
 
         verifyFileSignature(project, pomFile, signatureFiles, "POM", errors)
+        return inspected + 1
     }
 
     private fun verifyFileSignature(

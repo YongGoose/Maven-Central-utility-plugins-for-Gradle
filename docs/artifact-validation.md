@@ -15,8 +15,10 @@ plugins {
 ./gradlew checkProjectArtifact
 ```
 
-The task depends on the project's `Sign` and `GenerateMavenPom` tasks, so the signatures and the
-POM it inspects are always produced first — there is no need to chain it after `publish` manually.
+The task depends on the project's `GenerateMavenPom` tasks, and on its `Sign` tasks whenever a
+signatory is configured, so the files it inspects are produced first — there is no need to chain it
+after `publish` manually. Without a signatory the `Sign` dependency is dropped, so the task still
+runs and reports the missing signatures instead of failing inside Gradle's signing plugin.
 
 In a multi-module build the task validates **the metadata of the project it runs in**, i.e. the
 result of merging `rootProjectPom` with that module's `projectPom`. Running
@@ -87,18 +89,22 @@ different content. Full verification is tracked in
 
 `signing { setRequired(false) }` skips signature verification entirely, with a warning — only the
 metadata checks run in that configuration. The same is true when the project declares no
-publications.
-
-Because the task depends on the `Sign` tasks, signing is **required by default** and a project with
-no signatory configured will fail in `Sign` before `checkProjectArtifact` gets to report anything:
+publications. In both cases the task says so explicitly rather than reporting the signatures as
+verified:
 
 ```
-> Cannot perform signing task ':signMavenPublication' because it has no configured signatory
+✅ ArtifactCheckPlugin: metadata validation passed. PGP signature verification was SKIPPED
+   (see the warnings above) — this run does not confirm the artifacts are signed.
 ```
 
-That is Gradle's own message, not a validation failure. To get the metadata report on a machine
-without GPG keys, set `signing { setRequired(false) }` — Gradle then skips the `Sign` tasks and the
-plugin skips signature verification.
+On a machine with **no signatory configured** (a contributor without GPG keys, or CI without the
+key), the `Sign` tasks are left out of the dependency graph so you still get the report; the
+signatures are then reported as missing:
+
+```
+Validation failed:
+PGP signature not found for artifact 'my-library-1.0.0.jar' (expected '…/my-library-1.0.0.jar.asc').
+```
 
 ## Integrated Usage Example
 
