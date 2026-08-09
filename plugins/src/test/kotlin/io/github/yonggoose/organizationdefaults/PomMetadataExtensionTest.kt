@@ -90,12 +90,35 @@ class PomMetadataExtensionTest {
             description = "A description"
             url = "https://example.org"
             inceptionYear = "2024"
-            licenses { license { name = "Apache-2.0"; url = "https://example.org/license" } }
-            developers { developer { id = "dev1"; name = "Developer One" } }
-            mailingLists { mailingList { name = "dev"; post = "dev@example.org" } }
-            organization { name = "YongGoose"; url = "https://github.com/YongGoose" }
-            issueManagement { system = "GitHub"; url = "https://example.org/issues" }
-            scm { url = "https://github.com/YongGoose/library" }
+            licenses {
+                license {
+                    name = "Apache-2.0"
+                    url = "https://example.org/license"
+                }
+            }
+            developers {
+                developer {
+                    id = "dev1"
+                    name = "Developer One"
+                }
+            }
+            mailingLists {
+                mailingList {
+                    name = "dev"
+                    post = "dev@example.org"
+                }
+            }
+            organization {
+                name = "YongGoose"
+                url = "https://github.com/YongGoose"
+            }
+            issueManagement {
+                system = "GitHub"
+                url = "https://example.org/issues"
+            }
+            scm {
+                url = "https://github.com/YongGoose/library"
+            }
         }
 
         assertEquals(

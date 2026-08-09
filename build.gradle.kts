@@ -21,6 +21,23 @@ subprojects {
     // no Kotlin source set, so plugins/ and testing/ were never linted at all.
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
 
+    configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+        // Passed straight to ktlint rather than left to .editorconfig discovery, so the ruleset is
+        // identical in the IDE, on a developer machine and in CI.
+        additionalEditorconfig.set(
+            mapOf(
+                // ktlint 1.x defaults to `ktlint_official`, whose forced signature wrapping this
+                // codebase does not follow.
+                "ktlint_code_style" to "intellij_idea",
+                // IntelliJ permits trailing commas, and ktlint turns "permitted" into "required".
+                // This codebase does not use them.
+                "ij_kotlin_allow_trailing_comma" to "false",
+                "ij_kotlin_allow_trailing_comma_on_call_site" to "false",
+                "max_line_length" to "140"
+            )
+        )
+    }
+
     dependencies {
         "implementation"(kotlin("stdlib"))
         "testImplementation"(kotlin("test"))
