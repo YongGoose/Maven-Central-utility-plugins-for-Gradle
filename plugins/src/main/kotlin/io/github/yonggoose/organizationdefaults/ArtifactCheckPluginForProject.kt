@@ -142,13 +142,11 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return false
         }
 
-        val signatureArtifacts = signing.configuration.artifacts
-        if (signatureArtifacts.isEmpty()) {
+        val signatureFiles = collectSignatureFiles(project, signing)
+        if (signatureFiles.isEmpty()) {
             errors.add("No artifacts found to verify PGP signatures. Ensure artifacts are configured for signing.")
             return false
         }
-
-        val signatureFiles: List<File> = signatureArtifacts.map { it.file }
         project.logger.info("Found ${signatureFiles.size} signature file(s): ${signatureFiles.map { it.name }.sorted()}")
 
         var filesInspected = 0
@@ -166,6 +164,23 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return false
         }
         return true
+    }
+
+    /**
+     * Gathers every signature this project produces.
+     *
+     * `signing.configuration.artifacts` only carries signatures registered through `sign(Task)` or
+     * `sign(Configuration)`. `sign(publishing.publications)` — the setup Maven Central publishers
+     * actually use — attaches its signatures to the publication as derived artifacts and leaves
+     * the `signatures` configuration empty, so reading the configuration alone made this check
+     * report "No artifacts found to verify PGP signatures" for precisely the case it exists to
+     * cover. Take the `Sign` tasks' own outputs as well.
+     */
+    private fun collectSignatureFiles(project: Project, signing: SigningExtension): List<File> {
+        val files = LinkedHashSet<File>()
+        signing.configuration.artifacts.forEach { files.add(it.file) }
+        project.tasks.withType(Sign::class.java).forEach { files.addAll(it.signatureFiles.files) }
+        return files.toList()
     }
 
     /** Returns how many files were actually examined, so the caller can tell a no-op apart. */
