@@ -27,7 +27,21 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 "Verifies that all artifacts staged for publishing are signed and meet Maven Central requirements."
 
             // The signatures and the POM only exist on disk once their producing tasks have run.
-            dependsOn(project.tasks.withType(Sign::class.java))
+            //
+            // The Sign dependency is conditional: with no signatory configured, Gradle fails those
+            // tasks with "no configured signatory", and depending on them unconditionally would
+            // mean a contributor without GPG keys never sees the metadata report at all. Without
+            // a signatory the task still runs and reports the signatures as missing.
+            dependsOn(
+                project.provider {
+                    val signing = project.extensions.findByType(SigningExtension::class.java)
+                    if (signing?.signatory != null) {
+                        project.tasks.withType(Sign::class.java).toList()
+                    } else {
+                        emptyList()
+                    }
+                }
+            )
             dependsOn(project.tasks.withType(GenerateMavenPom::class.java))
 
             doLast {
@@ -41,15 +55,25 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 val errors = mutableListOf<String>()
 
                 errors.addAll(MavenCentralMetadataValidator.validate(pom))
-                validatePgpSignatures(project, errors)
+                val signaturesInspected = validatePgpSignatures(project, errors)
 
                 if (errors.isNotEmpty()) {
                     throw IllegalArgumentException("Validation failed:\n${errors.joinToString("\n")}")
                 }
 
-                project.logger.lifecycle(
-                    "✅ ArtifactCheckPlugin: All validations including PGP signature verification passed successfully."
-                )
+                // Only claim the signatures passed when some were actually looked at. Saying
+                // otherwise is the same fail-open reporting this task exists to remove.
+                if (signaturesInspected) {
+                    project.logger.lifecycle(
+                        "✅ ArtifactCheckPlugin: metadata and PGP signatures verified successfully."
+                    )
+                } else {
+                    project.logger.lifecycle(
+                        "✅ ArtifactCheckPlugin: metadata validation passed. PGP signature " +
+                            "verification was SKIPPED (see the warnings above) — this run does not " +
+                            "confirm the artifacts are signed."
+                    )
+                }
             }
         }
     }
@@ -75,8 +99,13 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
         val rootExtras = project.rootProject.extensions.extraProperties
         if (rootExtras.has(key)) {
-            project.logger.info(
-                "No 'mergedDefaults' on '${project.path}'; falling back to the root project's metadata."
+            // Loud on purpose: this validates a different project's coordinates than the one the
+            // task was invoked on, which is precisely the confusion this lookup was fixed to avoid.
+            project.logger.warn(
+                "No 'mergedDefaults' on '${project.path}', so it is being validated against the " +
+                    "root project's metadata. Apply " +
+                    "'io.github.yonggoose.maven.central.utility.plugin.project' to '${project.path}' " +
+                    "to validate its own coordinates."
             )
             return rootExtras.get(key) as? OrganizationDefaults
         }
@@ -84,35 +113,39 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         return null
     }
 
-    private fun validatePgpSignatures(project: Project, errors: MutableList<String>) {
+    /**
+     * Returns `true` when signatures were actually inspected, so the caller can avoid reporting a
+     * signature check that never ran.
+     */
+    private fun validatePgpSignatures(project: Project, errors: MutableList<String>): Boolean {
         val publishing = project.extensions.findByType(PublishingExtension::class.java)
         val signing = project.extensions.findByType(SigningExtension::class.java)
 
         if (publishing == null) {
             errors.add("'maven-publish' plugin not found. PGP signature verification cannot be performed.")
-            return
+            return false
         }
         if (signing == null) {
             errors.add("'signing' plugin is not configured to sign publications. Verification skipped.")
-            return
+            return false
         }
 
         if (!signing.isRequired) {
             project.logger.warn("Signing is not required. Skipping PGP signature verification.")
-            return
+            return false
         }
 
         if (publishing.publications.isEmpty()) {
             project.logger.warn(
                 "No publications found in 'publishing' extension. Skipping PGP signature verification."
             )
-            return
+            return false
         }
 
         val signatureArtifacts = signing.configuration.artifacts
         if (signatureArtifacts.isEmpty()) {
             errors.add("No artifacts found to verify PGP signatures. Ensure artifacts are configured for signing.")
-            return
+            return false
         }
 
         val signatureFiles: List<File> = signatureArtifacts.map { it.file }
@@ -121,6 +154,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
             validateMavenPublicationSignatures(project, publication, signatureFiles, errors)
         }
+        return true
     }
 
     private fun validateMavenPublicationSignatures(
@@ -155,10 +189,10 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         kind: String,
         errors: MutableList<String>
     ) {
-        val signatureFile = resolveSignature(file, signatureFiles)
+        val signatureFile = PgpSignatureVerifier.resolveSignatureFor(file, signatureFiles)
 
         if (signatureFile == null) {
-            val expected = expectedSignatureFor(file)
+            val expected = PgpSignatureVerifier.expectedSignatureFor(file)
             errors.add("PGP signature not found for $kind '${file.name}' (expected '${expected.path}').")
             return
         }
@@ -170,29 +204,6 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             errors.add("PGP signature verification FAILED for $kind '${file.name}': ${result.detail}")
         }
     }
-
-    /**
-     * Finds the signature that belongs to [file], matching on the full path rather than the file
-     * name.
-     *
-     * Every `MavenPublication` writes its POM to `build/publications/<name>/pom-default.xml`, so
-     * in a build with more than one publication — `java-gradle-plugin` alone adds a marker
-     * publication per declared plugin — a name-keyed lookup collapses every `pom-default.xml.asc`
-     * onto a single entry and pairs the remaining POMs with another publication's signature.
-     *
-     * A bare name match is still accepted as a fallback for signing setups that write signatures
-     * somewhere other than beside the file, but only when it is unambiguous: pairing the wrong
-     * files is the failure mode this whole check exists to prevent.
-     */
-    private fun resolveSignature(file: File, signatureFiles: List<File>): File? {
-        val expected = expectedSignatureFor(file)
-        signatureFiles.firstOrNull { it.absoluteFile == expected }?.let { return it }
-
-        return signatureFiles.filter { it.name == expected.name }.singleOrNull()
-    }
-
-    private fun expectedSignatureFor(file: File): File =
-        File(file.absoluteFile.parentFile, PgpSignatureVerifier.signatureNameFor(file))
 
     /**
      * Resolves the generated POM for [publication] from its `GenerateMavenPom` task, falling back

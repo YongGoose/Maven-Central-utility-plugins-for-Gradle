@@ -70,6 +70,26 @@ are configuring, not from the root — the root's entry does not contain that mo
 val pom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
 ```
 
+For that to work, **every module that reads `mergedDefaults` must also apply the plugin** — it is
+what creates the entry (and the module's own `projectPom` block). Applying it only in the root
+leaves submodules without one:
+
+```kotlin
+// sub/build.gradle.kts
+plugins {
+    id("io.github.yonggoose.maven.central.utility.plugin.project")
+}
+```
+
+A convenient alternative for a multi-module build is to apply it to every project at once:
+
+```kotlin
+// build.gradle.kts
+subprojects {
+    apply(plugin = "io.github.yonggoose.maven.central.utility.plugin.project")
+}
+```
+
 ## Supported POM Elements
 - groupId, artifactId, version 
 - name, description, url, inceptionYear 

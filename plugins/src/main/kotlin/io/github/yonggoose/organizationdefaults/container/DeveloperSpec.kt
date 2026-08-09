@@ -28,5 +28,7 @@ class DevelopersContainer {
         developers.add(spec.build())
     }
 
-    internal fun getDevelopers(): List<Developer> = developers
+    // Copied, not exposed: OrganizationDefaults is meant to be a snapshot, and merge() propagates
+    // the same list instance to every module that inherits it.
+    internal fun getDevelopers(): List<Developer> = developers.toList()
 }

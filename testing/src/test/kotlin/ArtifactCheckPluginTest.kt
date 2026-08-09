@@ -76,8 +76,10 @@ class ArtifactCheckPluginTest {
         val result = runCheck().build()
 
         Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
+        // This build sets `setRequired(false)`, so no signature is inspected and the task must
+        // say so rather than claim the signatures were verified.
         Assertions.assertTrue(
-            result.output.contains("All validations including PGP signature verification passed"),
+            result.output.contains("PGP signature verification was SKIPPED"),
             result.output
         )
     }

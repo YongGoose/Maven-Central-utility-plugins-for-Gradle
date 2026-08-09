@@ -11,9 +11,13 @@ updates:
     labels:
       - "dependencies"
 
-  # Keeps BouncyCastle, Kotlin, ktlint and the plugin-publish plugin current.
+  # Keeps BouncyCastle, Kotlin, ktlint and the plugin-publish plugin current. Dependabot only
+  # scans the directories listed here, and the interesting dependencies live in the subprojects.
   - package-ecosystem: "gradle"
-    directory: "/"
+    directories:
+      - "/"
+      - "/plugins"
+      - "/testing"
     schedule:
       interval: "monthly"
     commit-message:

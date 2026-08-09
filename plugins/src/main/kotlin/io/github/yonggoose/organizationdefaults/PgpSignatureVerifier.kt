@@ -60,6 +60,30 @@ object PgpSignatureVerifier {
      */
     fun signatureNameFor(file: File): String = file.name + SIGNATURE_EXTENSION
 
+    /** Where the signature for [file] is expected to sit: beside the file it signs. */
+    fun expectedSignatureFor(file: File): File =
+        File(file.absoluteFile.parentFile, signatureNameFor(file))
+
+    /**
+     * Finds the signature belonging to [file] among [signatureFiles], matching on the full path.
+     *
+     * Every `MavenPublication` writes its POM to `build/publications/<name>/pom-default.xml`, so
+     * in a build with more than one publication — `java-gradle-plugin` alone adds a marker
+     * publication per declared plugin — every POM signature is called `pom-default.xml.asc`.
+     * Matching on the name alone would pair a POM with another publication's signature.
+     *
+     * A bare-name match is accepted as a fallback for signing setups that write signatures
+     * somewhere other than beside the file, but only when exactly one candidate carries that
+     * name. Ambiguity resolves to `null`: pairing the wrong files is the failure mode this whole
+     * check exists to prevent.
+     */
+    fun resolveSignatureFor(file: File, signatureFiles: Collection<File>): File? {
+        val expected = expectedSignatureFor(file)
+        signatureFiles.firstOrNull { it.absoluteFile == expected }?.let { return it }
+
+        return signatureFiles.filter { it.name == expected.name }.singleOrNull()
+    }
+
     fun verify(artifactFile: File, signatureFile: File): SignatureVerification {
         if (!artifactFile.exists()) {
             return SignatureVerification.failed("Artifact file does not exist: ${artifactFile.absolutePath}")

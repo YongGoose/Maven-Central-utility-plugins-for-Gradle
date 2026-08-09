@@ -26,5 +26,7 @@ class MailingListsContainer {
         mailingLists.add(spec.build())
     }
 
-    internal fun getMailingLists(): List<MailingList> = mailingLists
+    // Copied, not exposed: OrganizationDefaults is meant to be a snapshot, and merge() propagates
+    // the same list instance to every module that inherits it.
+    internal fun getMailingLists(): List<MailingList> = mailingLists.toList()
 }

@@ -24,7 +24,15 @@ result of merging `rootProjectPom` with that module's `projectPom`. Running
 
 ## Metadata Validation
 
-The plugin validates every field Maven Central requires
+> [!IMPORTANT]
+> The task validates **the metadata you configured through this plugin** (`mergedDefaults`), not
+> the XML of the POM that will actually be uploaded. This plugin does not write `mergedDefaults`
+> into `MavenPublication.pom` for you — see the
+> [vanniktech integration example](../README.md#integration) for wiring it up. If you configure
+> `rootProjectPom` but never feed it into your publication, `checkProjectArtifact` passes while
+> the published POM is still empty.
+
+Against that metadata, every field Maven Central requires is checked
 ([publishing requirements](https://central.sonatype.org/publish/requirements/)):
 
 | Field | Rule |

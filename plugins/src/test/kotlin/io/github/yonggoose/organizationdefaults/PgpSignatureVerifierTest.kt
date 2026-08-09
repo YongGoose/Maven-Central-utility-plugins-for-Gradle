@@ -17,6 +17,7 @@ import java.util.Date
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -140,6 +141,66 @@ class PgpSignatureVerifierTest {
         val missingSignature = PgpSignatureVerifier.verify(jar, File(tempDir, "absent.jar.asc"))
         assertFalse(missingSignature.isOk)
         assertTrue(missingSignature.detail.contains("Signature file does not exist"), missingSignature.detail)
+    }
+
+    @Test
+    fun `the sibling signature wins when publications produce identically named files`() {
+        // Every MavenPublication writes build/publications/<name>/pom-default.xml, so a build with
+        // several publications has several pom-default.xml.asc files. Keying on the name alone
+        // paired a POM with another publication's signature.
+        val pluginMavenPom = File(tempDir, "publications/pluginMaven/pom-default.xml")
+        val markerPom = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml")
+        val signatures = listOf(
+            File(tempDir, "publications/pluginMaven/pom-default.xml.asc"),
+            File(tempDir, "publications/pluginMarkerMaven/pom-default.xml.asc")
+        )
+
+        assertEquals(
+            signatures[0].absoluteFile,
+            PgpSignatureVerifier.resolveSignatureFor(pluginMavenPom, signatures)?.absoluteFile
+        )
+        assertEquals(
+            signatures[1].absoluteFile,
+            PgpSignatureVerifier.resolveSignatureFor(markerPom, signatures)?.absoluteFile
+        )
+    }
+
+    @Test
+    fun `an unambiguous name match is accepted when the signature is not a sibling`() {
+        val jar = File(tempDir, "libs/my-library-1.0.0.jar")
+        val elsewhere = listOf(File(tempDir, "signatures/my-library-1.0.0.jar.asc"))
+
+        assertEquals(
+            elsewhere.single().absoluteFile,
+            PgpSignatureVerifier.resolveSignatureFor(jar, elsewhere)?.absoluteFile
+        )
+    }
+
+    @Test
+    fun `an ambiguous name match with no sibling resolves to nothing`() {
+        val pom = File(tempDir, "publications/pluginMaven/pom-default.xml")
+        val decoys = listOf(
+            File(tempDir, "publications/otherA/pom-default.xml.asc"),
+            File(tempDir, "publications/otherB/pom-default.xml.asc")
+        )
+
+        assertNull(
+            PgpSignatureVerifier.resolveSignatureFor(pom, decoys),
+            "an ambiguous match must fail closed rather than pick one arbitrarily"
+        )
+    }
+
+    @Test
+    fun `the sources jar signature never satisfies the main jar`() {
+        val mainJar = File(tempDir, "libs/my-library-1.0.0.jar")
+        val sourcesSignature = listOf(File(tempDir, "libs/my-library-1.0.0-sources.jar.asc"))
+
+        assertNull(PgpSignatureVerifier.resolveSignatureFor(mainJar, sourcesSignature))
+    }
+
+    @Test
+    fun `an empty signature set resolves to nothing`() {
+        assertNull(PgpSignatureVerifier.resolveSignatureFor(File(tempDir, "a.jar"), emptyList()))
     }
 
     @Test
