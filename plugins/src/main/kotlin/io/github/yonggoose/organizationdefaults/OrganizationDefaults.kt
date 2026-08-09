@@ -160,7 +160,7 @@ data class MailingList(
     val subscribe: String? = null,
     val unsubscribe: String? = null,
     val post: String? = null,
-    val archive: String? = null,
+    val archive: String? = null
 ) : Serializable {
     companion object {
         private const val serialVersionUID: Long = 1L
