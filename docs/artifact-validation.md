@@ -72,31 +72,31 @@ Missing scm: Maven Central requires source control information.
 
 Maven Central requires every published file to be signed. The plugin checks that:
 
-1. A `.asc` signature exists for every artifact in each `MavenPublication`.
+1. A signature exists for every artifact in each `MavenPublication`.
 2. The generated POM is signed too.
-3. The generated Gradle Module Metadata (`module.json`) is signed too, when it was produced.
-   It is published and checked at upload alongside the POM. Builds that disable
+3. The generated Gradle Module Metadata (`module.json`) is signed too, when it is part of the
+   publication. It is published and checked at upload alongside the POM. Builds that disable
    `GenerateModuleMetadata` are unaffected.
-4. Each signature file parses as a well-formed detached PGP signature (using BouncyCastle).
+4. Each signature parses as a well-formed detached PGP signature (using BouncyCastle).
 
-A signature is accepted **only at the sibling path** — `foo-1.0.jar` is paired with
-`foo-1.0.jar.asc` sitting in the same directory, and with nothing else. Gradle always writes a
-signature beside the file it signs, so nothing else is ever the right answer, and looser matching
-has two ways to go wrong:
+Each file is paired with its signature using the mapping **Gradle itself records**
+(`Signature.toSign`), not by deriving a name or a path. Two things follow:
 
-- matching by prefix lets `foo-1.0-sources.jar.asc` stand in for the main jar;
-- matching by bare name is unsafe even when there is exactly one candidate. Every publication
-  writes its POM to `build/publications/<name>/pom-default.xml`, so a build that signs one
-  publication and not another leaves the unsigned one with a single same-named
-  `pom-default.xml.asc` nearby — belonging to a different publication.
+- The check makes no assumption about the signature's extension, so a build that sets
+  `signing { signatureType = BinarySignatureType() }` and emits `.sig` works the same way.
+- A signature can only ever be attributed to the file Gradle actually signed, so the wrong-file
+  pairings that name- or prefix-based matching allows — a jar checked against the sources jar's
+  signature, or one publication's `pom-default.xml.asc` standing in for another's — are impossible
+  by construction rather than guarded against.
 
-Same-named files found elsewhere are listed in the "signature not found" message so the cause is
-visible, but they are never accepted as a match.
+The flip side is that **signatures the Gradle `signing` plugin did not create are invisible**. If
+you sign artifacts with an external tool and drop the files into `build/`, `checkProjectArtifact`
+reports them as unsigned.
 
-Anything the plugin cannot read is reported as a failure rather than passed over. `PgpSignatureVerifier`
-returns a verdict instead of logging, so a signature file that is empty, lacks the armor markers,
-is truncated, or does not parse as a signature list all produce
-`SignatureVerification.failed(...)` — never a silent pass.
+Anything the plugin cannot read is reported as a failure rather than passed over.
+`PgpSignatureVerifier` returns a verdict instead of logging, so a signature that is empty,
+truncated, or does not parse as a signature list all produce `SignatureVerification.failed(...)`
+— never a silent pass.
 
 ### Current limitations
 

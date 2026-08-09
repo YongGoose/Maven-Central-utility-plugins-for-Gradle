@@ -43,9 +43,8 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             dependsOn(project.tasks.withType(GenerateMavenPom::class.java))
             dependsOn(project.tasks.withType(GenerateModuleMetadata::class.java))
 
-            // And on the artifacts themselves. Without a signatory the Sign dependency above is
-            // dropped, and with it whatever would have built the jar, so every artifact would be
-            // reported as "not built" rather than as unsigned.
+            // And on the artifacts themselves: signing them does not, on its own, guarantee they
+            // are in the graph, and an artifact that was never built cannot be checked.
             dependsOn(
                 project.provider {
                     project.extensions.findByType(PublishingExtension::class.java)

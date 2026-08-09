@@ -28,11 +28,14 @@ data class SignatureVerification(val verdict: Verdict, val detail: String) {
 }
 
 /**
- * Inspects detached `.asc` signatures with Bouncy Castle.
+ * Inspects detached PGP signatures with Bouncy Castle.
  *
  * Deliberately free of Gradle types so the verdicts can be unit tested against real signature
  * files. Anything that cannot be read is a failure, never a pass — an unreadable signature is
  * not a verified signature.
+ *
+ * Handles both ASCII-armored (`.asc`) and raw binary (`.sig`) detached signatures, since
+ * `signing.signatureType` decides which a build produces.
  *
  * Scope: this validates the *structure* of a signature, not its cryptographic validity against a
  * public key, so it cannot detect a well-formed signature produced over different content. Full
@@ -40,9 +43,6 @@ data class SignatureVerification(val verdict: Verdict, val detail: String) {
  * https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/22.
  */
 object PgpSignatureVerifier {
-
-    private const val PGP_SIGNATURE_HEADER = "BEGIN PGP SIGNATURE"
-    private const val PGP_SIGNATURE_FOOTER = "END PGP SIGNATURE"
 
     init {
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
@@ -61,13 +61,9 @@ object PgpSignatureVerifier {
             return SignatureVerification.failed("Signature file is empty: ${signatureFile.absolutePath}")
         }
 
-        val signatureContent = signatureFile.readText()
-        if (!signatureContent.contains(PGP_SIGNATURE_HEADER) || !signatureContent.contains(PGP_SIGNATURE_FOOTER)) {
-            return SignatureVerification.failed(
-                "Not an armored PGP signature (missing BEGIN/END markers): ${signatureFile.absolutePath}"
-            )
-        }
-
+        // No ASCII-armor marker pre-check: `signing.signatureType` can emit raw binary `.sig`
+        // files, and rejecting those on missing BEGIN/END text would fail a correctly signed
+        // build. PGPUtil.getDecoderStream handles both forms, so let the parse be the verdict.
         return readSignatureList(artifactFile, signatureFile)
     }
 
