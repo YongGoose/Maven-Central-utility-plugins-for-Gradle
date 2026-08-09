@@ -81,15 +81,16 @@ class PgpSignatureVerifierTest {
     }
 
     @Test
-    fun `a file without PGP armor markers fails`() {
+    fun `a file that is not a signature at all fails`() {
+        // There is deliberately no ASCII-armor marker pre-check -- binary .sig signatures carry
+        // none -- so this has to fail in the parse rather than in a text sniff.
         val jar = artifact()
         val notASignature = File(tempDir, jar.name + ".asc")
             .apply { writeText("this is definitely not a signature\n") }
 
         val result = PgpSignatureVerifier.verify(jar, notASignature)
 
-        assertFalse(result.isOk)
-        assertTrue(result.detail.contains("armored"), result.detail)
+        assertFalse(result.isOk, "arbitrary text must not verify (detail was: ${result.detail})")
     }
 
     @Test
