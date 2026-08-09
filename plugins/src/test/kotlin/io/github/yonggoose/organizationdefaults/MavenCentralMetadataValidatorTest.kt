@@ -10,21 +10,22 @@ class MavenCentralMetadataValidatorTest {
         groupId: String? = "io.github.yonggoose",
         artifactId: String? = "my-library",
         version: String? = "1.0.0"
-    ) = OrganizationDefaults(
-        groupId = groupId,
-        artifactId = artifactId,
-        version = version,
-        name = "My Library",
-        description = "A description",
-        url = "https://example.org",
-        licenses = listOf(License(name = "Apache-2.0", url = "https://www.apache.org/licenses/LICENSE-2.0")),
-        developers = listOf(Developer(id = "dev1", name = "Developer One")),
-        scm = Scm(
-            connection = "scm:git:git@github.com:YongGoose/my-library.git",
-            developerConnection = "scm:git:git@github.com:YongGoose/my-library.git",
-            url = "https://github.com/YongGoose/my-library"
+    ): OrganizationDefaults =
+        OrganizationDefaults(
+            groupId = groupId,
+            artifactId = artifactId,
+            version = version,
+            name = "My Library",
+            description = "A description",
+            url = "https://example.org",
+            licenses = listOf(License(name = "Apache-2.0", url = "https://www.apache.org/licenses/LICENSE-2.0")),
+            developers = listOf(Developer(id = "dev1", name = "Developer One")),
+            scm = Scm(
+                connection = "scm:git:git@github.com:YongGoose/my-library.git",
+                developerConnection = "scm:git:git@github.com:YongGoose/my-library.git",
+                url = "https://github.com/YongGoose/my-library"
+            )
         )
-    )
 
     private fun assertOnlyProblem(errors: List<String>, expectedPrefix: String) {
         assertEquals(1, errors.size, "expected exactly one problem but got $errors")

@@ -14,6 +14,10 @@ val ktlintSettings = mapOf(
     // ktlint 1.x defaults to `ktlint_official`, whose forced signature wrapping this codebase
     // does not follow.
     "ktlint_code_style" to "intellij_idea",
+    // `ktlint_code_style` only selects the ruleset when it comes from a real .editorconfig, so
+    // switch this one off by name: it dictates exactly how a signature must wrap and how an
+    // expression body must follow it, which is a house style this project has not adopted.
+    "ktlint_standard_function-signature" to "disabled",
     // IntelliJ permits trailing commas, and ktlint turns "permitted" into "required".
     // This codebase does not use them.
     "ij_kotlin_allow_trailing_comma" to "false",
