@@ -214,4 +214,106 @@ class ArtifactCheckPluginTest {
         }
         Assertions.assertTrue(exception.message?.contains("Invalid version") == true)
     }
+
+    @Test
+    fun `should accept groupIds containing digits and hyphens`() {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+            plugins {
+                java
+                `maven-publish`
+                signing
+                id("io.github.yonggoose.maven.central.utility.plugin.check")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
+            }
+
+            signing {
+                setRequired(false)
+            }
+
+            rootProjectPom {
+                groupId = "io.github.my-org2"
+                artifactId = "my-library"
+                version = "1.0.0"
+
+                name = "My Library"
+                description = "A library with a hyphenated, digit-bearing groupId"
+                url = "https://example.org"
+
+                licenses {
+                    license {
+                        name = "Apache-2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0"
+                        distribution = "repo"
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = "dev1"
+                        name = "Developer1"
+                        email = "dev1@example.com"
+                    }
+                }
+
+                scm {
+                    url = "https://github.com/YongGoose/my-library"
+                    connection = "scm:git:git@github.com:YongGoose/my-library.git"
+                    developerConnection = "scm:git:git@github.com:YongGoose/my-library.git"
+                }
+            }
+            """.trimIndent()
+        )
+
+        val result = GradleRunner.create()
+            .withProjectDir(projectDir.toFile())
+            .withArguments("checkProjectArtifact")
+            .withPluginClasspath()
+            .forwardOutput()
+            .build()
+
+        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
+    }
+
+    @Test
+    fun `should report the Maven Central required metadata that is missing`() {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+            plugins {
+                java
+                `maven-publish`
+                signing
+                id("io.github.yonggoose.maven.central.utility.plugin.check")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
+            }
+
+            signing {
+                setRequired(false)
+            }
+
+            rootProjectPom {
+                groupId = "io.github.yonggoose"
+                artifactId = "organization-defaults"
+                version = "1.0.0"
+            }
+            """.trimIndent()
+        )
+
+        val exception = assertThrows<UnexpectedBuildFailure> {
+            GradleRunner.create()
+                .withProjectDir(projectDir.toFile())
+                .withArguments("checkProjectArtifact")
+                .withPluginClasspath()
+                .build()
+        }
+
+        val message = exception.message ?: ""
+        Assertions.assertTrue(message.contains("Missing name"), message)
+        Assertions.assertTrue(message.contains("Missing description"), message)
+        Assertions.assertTrue(message.contains("Missing url"), message)
+        Assertions.assertTrue(message.contains("Missing licenses"), message)
+        Assertions.assertTrue(message.contains("Missing developers"), message)
+        Assertions.assertTrue(message.contains("Missing scm"), message)
+    }
+
 }

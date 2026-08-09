@@ -6,111 +6,101 @@ All artifacts published to Maven Central require a PGP signature, and the metada
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.6"
+    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
 }
+```
 
-// Run the validation task
+```bash
+# Run the validation task
 ./gradlew checkProjectArtifact
 ```
+
+The task depends on the project's `Sign` and `GenerateMavenPom` tasks, so the signatures and the
+POM it inspects are always produced first — there is no need to chain it after `publish` manually.
+
+In a multi-module build the task validates **the metadata of the project it runs in**, i.e. the
+result of merging `rootProjectPom` with that module's `projectPom`. Running
+`./gradlew :sub:checkProjectArtifact` therefore checks `:sub`'s effective POM, overrides included.
+
 ## Metadata Validation
-The plugin validates the following fields:
-- `groupId` - Checks if it follows the reverse domain name format (e.g., `io.github.yonggoose`).
-- `artifactId` - Ensures it is not empty.
-- `version` - Ensures it is not empty and is not a snapshot version (does not end with `-SNAPSHOT`).
 
-```Kotlin
-private fun validateMetadata(pom: OrganizationDefaults, errors: MutableList<String>) {
-    val groupId = pom.groupId
-    if (groupId == null || groupId.isBlank() || !groupId.matches(Regex("^[a-z]+(\\.[a-z][a-z0-9]*)+$"))) {
-        errors.add("Invalid groupId: Must be in reverse domain name format or not be null or blank.")
-    }
+The plugin validates every field Maven Central requires
+([publishing requirements](https://central.sonatype.org/publish/requirements/)):
 
-    if (pom.artifactId.isNullOrBlank()) {
-        errors.add("Invalid artifactId: Pom must not be null or blank.")
-    }
+| Field | Rule |
+|---|---|
+| `groupId` | Non-blank, dotted Maven coordinate (`io.github.yonggoose`). Digits and hyphens are allowed, so `log4j.log4j` and `io.github.my-org` are accepted. |
+| `artifactId` | Non-blank Maven coordinate. |
+| `version` | Non-blank and not a snapshot (must not end with `-SNAPSHOT`). |
+| `name` | Non-blank. |
+| `description` | Non-blank. |
+| `url` | Non-blank. |
+| `licenses` | At least one entry, each with a `name`. |
+| `developers` | At least one entry, each with an `id` or a `name`. |
+| `scm` | Present, with a non-blank `url`. |
 
-    val version = pom.version
-    if (version == null || (version.isBlank() || version.endsWith("-SNAPSHOT"))) {
-        errors.add("Invalid version: The version must not be null, blank, or end with '-SNAPSHOT'.")
-    }
-}
+All violations are collected and reported together, so one run tells you everything that is wrong:
+
+```
+Validation failed:
+Missing description: Maven Central requires a project description.
+Missing licenses: Maven Central requires at least one license.
+Missing scm: Maven Central requires source control information.
 ```
 
 ## PGP Signature Validation
-All artifacts published to Maven Central must be signed with PGP. The plugin checks the following:
 
-1. Ensures an accompanying `.asc` signature file exists for every artifact.
-2. Confirms the POM file itself is signed.
-3. Verifies that the signature file format is correct (using the BouncyCastle library).
+Maven Central requires every published file to be signed. The plugin checks that:
 
-```Kotlin
-private fun validatePgpSignatures(project: Project, errors: MutableList<String>) {
-    val publishing = project.extensions.findByType(PublishingExtension::class.java)
-    val signing = project.extensions.findByType(SigningExtension::class.java)
+1. A `.asc` signature exists for every artifact in each `MavenPublication`.
+2. The generated POM is signed too.
+3. Each signature file parses as a well-formed detached PGP signature (using BouncyCastle).
 
-    // Check if required plugins are applied
-    if (publishing == null || signing == null) {
-        errors.add("Required plugins not found")
-        return
-    }
+Signature files are matched to their artifact **by exact name** — `foo-1.0.jar` is only ever paired
+with `foo-1.0.jar.asc`. A prefix match would let `foo-1.0-sources.jar.asc` stand in for the main
+jar, which would defeat the point of the check.
 
-    // Check signing configuration
-    if (!signing.isRequired) {
-        project.logger.warn("Signing is not required. Skipping verification.")
-        return
-    }
+Anything the plugin cannot read is reported as a failure rather than passed over:
 
-    // Verify artifacts and signatures
-    publishing.publications.forEach { publication ->
-        if (publication is MavenPublication) {
-            validateMavenPublicationSignatures(project, publication, signing.configuration.artifacts, errors)
-        }
-    }
-}
-```
-
-## Detailed PGP Signature Verification
-It uses the BouncyCastle library to verify the structural validity of the PGP signature:
-
-```Kotlin
-private fun verifyPgpSignaturePresenceWithBouncyCastle(
-    artifactFile: File,
-    signatureFile: File,
-    project: Project
-): Boolean {
+```kotlin
+private fun readSignatureList(project: Project, artifactFile: File, signatureFile: File): PGPSignatureList? {
     return try {
-        val signatureInputStream = PGPUtil.getDecoderStream(FileInputStream(signatureFile))
-        val pgpFactory = PGPObjectFactory(signatureInputStream, JcaKeyFingerprintCalculator())
+        FileInputStream(signatureFile).use { input ->
+            val decoded = PGPUtil.getDecoderStream(input)
+            val pgpFactory = PGPObjectFactory(decoded, JcaKeyFingerprintCalculator())
 
-        val obj = pgpFactory.nextObject()
-        if (obj !is PGPSignatureList) {
-            project.logger.error("Invalid signature file format")
-            return false
+            val obj = pgpFactory.nextObject()
+            if (obj !is PGPSignatureList) { /* report and return null */ }
+            if (obj.size() == 0) { /* report and return null */ }
+            obj
         }
-
-        if (obj.size() == 0) {
-            project.logger.error("No signatures found in signature file")
-            return false
-        }
-
-        val signature = obj[0]
-        project.logger.info("Found signature with key ID: ${String.format("0x%X", signature.keyID)}")
-        true
     } catch (e: Exception) {
-        project.logger.error("Error verifying signature: ${e.message}")
-        false
+        // Fail closed: an unreadable signature is not a verified signature.
+        project.logger.error("Could not read the PGP signature for ${artifactFile.name}: ${e.message}", e)
+        null
     }
 }
 ```
+
+### Current limitation
+
+The signature check validates **structure**, not cryptographic validity: the plugin does not yet
+verify a signature against a public key, so it cannot detect a well-formed signature produced over
+different content. Full verification is tracked in
+[#22](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/22).
+
+Note also that `signing { setRequired(false) }` skips signature verification entirely, with a
+warning — only the metadata checks run in that configuration.
 
 ## Integrated Usage Example
+
 This plugin can be used alongside the Maven Publish plugin to validate artifacts before publishing:
 
-```Kotlin
+```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.6"
-    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.6"
-    id("com.vanniktech.maven.publish") version "0.29.0"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
+    id("com.vanniktech.maven.publish") version "0.34.0"
     signing
 }
 

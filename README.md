@@ -61,7 +61,7 @@ import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 
 plugins {
     id("java")
-    id("io.github.yonggoose.maven.central.utility.plugin..project") version "0.1.6"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
     id("com.vanniktech.maven.publish") version "0.34.0"
     id("maven-publish")
 }

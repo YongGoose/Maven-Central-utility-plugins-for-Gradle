@@ -20,7 +20,7 @@ In `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.6"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
 }
 
 rootProjectPom {
@@ -62,10 +62,12 @@ rootProjectPom {
 
 The plugin is implemented via the `OrganizationDefaultsProjectPlugin` class and stores all POM metadata in the `OrganizationDefaults` data class.
 
-The `rootProjectPom` configuration in the root project is stored in the project’s `extraProperties` as `mergedDefaults`, making it accessible from all submodules:
+The plugin writes the result of merging `rootProjectPom` with the module's own `projectPom` into
+**each project's** `extraProperties` under the key `mergedDefaults`. Read it from the project you
+are configuring, not from the root — the root's entry does not contain that module's overrides:
 
 ```kotlin
-val pom = project.rootProject.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
+val pom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
 ```
 
 ## Supported POM Elements

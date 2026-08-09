@@ -59,24 +59,16 @@ data class OrganizationDefaults(
             url = override.url ?: this.url,
             inceptionYear = override.inceptionYear ?: this.inceptionYear,
             licenses = override.licenses.ifEmpty { this.licenses },
-            organization = if (override.organization?.name == null && override.organization?.url == null) {
-                this.organization
-            } else {
-                override.organization
-            },
+            organization = override.organization ?: this.organization,
             developers = override.developers.ifEmpty { this.developers },
-            issueManagement = if (override.issueManagement?.system == null && override.issueManagement?.url == null) {
-                this.issueManagement
-            } else {
-                override.issueManagement
-            },
+            issueManagement = override.issueManagement ?: this.issueManagement,
             mailingLists = override.mailingLists.ifEmpty { this.mailingLists },
-            scm = if (override.scm?.connection == null && override.scm?.developerConnection == null && override.scm?.url == null) {
-                this.scm
-            } else {
-                override.scm
-            }
+            scm = override.scm ?: this.scm
         )
+    }
+
+    companion object {
+        private const val serialVersionUID: Long = 1L
     }
 }
 
@@ -93,7 +85,11 @@ data class License(
     var url: String? = null,
     var distribution: String? = null,
     var comments: String? = null
-) : Serializable
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}
 
 /**
  * Data class representing organization information.
@@ -104,7 +100,11 @@ data class License(
 data class Organization(
     val name: String? = null,
     val url: String? = null
-) : Serializable
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}
 
 /**
  * Data class representing developer information.
@@ -125,7 +125,11 @@ data class Developer(
     val organization: String? = null,
     val organizationUrl: String? = null,
     val timezone: String? = null
-) : Serializable
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}
 
 /**
  * Data class representing issue management information.
@@ -136,7 +140,11 @@ data class Developer(
 data class IssueManagement(
     val system: String? = null,
     val url: String? = null
-) : Serializable
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}
 
 /**
  * Data class representing mailing list information.
@@ -153,7 +161,11 @@ data class MailingList(
     val unsubscribe: String? = null,
     val post: String? = null,
     val archive: String? = null,
-) : Serializable
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}
 
 /**
  * Data class representing source code management information.
@@ -166,4 +178,8 @@ data class Scm(
     val connection: String? = null,
     val developerConnection: String? = null,
     val url: String? = null
-) : Serializable
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}
