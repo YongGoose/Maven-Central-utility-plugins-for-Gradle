@@ -81,10 +81,10 @@ data class OrganizationDefaults(
  * @property comments Additional comments about the license.
  */
 data class License(
-    var name: String? = null,
-    var url: String? = null,
-    var distribution: String? = null,
-    var comments: String? = null
+    val name: String? = null,
+    val url: String? = null,
+    val distribution: String? = null,
+    val comments: String? = null
 ) : Serializable {
     companion object {
         private const val serialVersionUID: Long = 1L

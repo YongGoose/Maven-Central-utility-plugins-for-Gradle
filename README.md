@@ -32,19 +32,42 @@ Not yet published to Maven Central. (Will be available soon.)
 
 ---
 ## ⚡ Quick Start
-Minimal setup in `build.gradle.kts`:
+Setup in `build.gradle.kts`. These are exactly the fields Maven Central requires, so this is also
+the smallest configuration that passes `checkProjectArtifact`:
 ```kotlin
 rootProjectPom {
     groupId = "io.github.yonggoose"
     artifactId = "my-project"
     version = "1.0.0"
+
     name = "My Project"
     description = "A sample project"
+    url = "https://github.com/YongGoose/my-project"
+
+    licenses {
+        license {
+            name = "Apache-2.0"
+            url = "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+    }
+
+    developers {
+        developer {
+            id = "yonggoose"
+            name = "Yongjun Hong"
+        }
+    }
+
+    scm {
+        url = "https://github.com/YongGoose/my-project"
+        connection = "scm:git:git@github.com:YongGoose/my-project.git"
+        developerConnection = "scm:git:git@github.com:YongGoose/my-project.git"
+    }
 }
 ```
 
 Validate before publishing:
-```kotlin
+```bash
 ./gradlew checkProjectArtifact
 ```
 

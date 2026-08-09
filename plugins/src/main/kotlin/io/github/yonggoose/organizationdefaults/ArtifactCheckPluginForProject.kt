@@ -5,6 +5,7 @@ import org.gradle.api.Project
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.tasks.GenerateMavenPom
+import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.plugins.signing.Sign
 import org.gradle.plugins.signing.SigningExtension
@@ -43,6 +44,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 }
             )
             dependsOn(project.tasks.withType(GenerateMavenPom::class.java))
+            dependsOn(project.tasks.withType(GenerateModuleMetadata::class.java))
 
             doLast {
                 val pom = resolveMergedDefaults(project)
@@ -79,38 +81,23 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     }
 
     /**
-     * Resolves the merged POM metadata for [project].
+     * Resolves the merged POM metadata for [project], and only for [project].
      *
-     * The project plugin writes `mergedDefaults` into every project it is applied to, so the
-     * project's own entry is authoritative and must win over the root project's — otherwise a
-     * submodule would be validated against the organization defaults it just overrode.
-     * The root project is only consulted as a fallback.
+     * The project plugin writes `mergedDefaults` into every project it is applied to, so a project
+     * that has no entry of its own has nothing to validate. There is deliberately no fallback to
+     * the root project: reporting success for `:sub` after checking the root's artifactId, version
+     * and scm is the confusion this task was fixed to stop, and a warning is too easy to miss in
+     * CI output. Applying the project plugin to `:sub` gives it the root's values through the
+     * normal merge, explicitly.
      */
     private fun resolveMergedDefaults(project: Project): OrganizationDefaults? {
+        val extras = project.extensions.extraProperties
         val key = OrganizationDefaultsProjectPlugin.MERGED_DEFAULTS_PROPERTY
 
-        val ownExtras = project.extensions.extraProperties
-        if (ownExtras.has(key)) {
-            val own = ownExtras.get(key)
-            if (own is OrganizationDefaults) {
-                return own
-            }
+        if (!extras.has(key)) {
+            return null
         }
-
-        val rootExtras = project.rootProject.extensions.extraProperties
-        if (rootExtras.has(key)) {
-            // Loud on purpose: this validates a different project's coordinates than the one the
-            // task was invoked on, which is precisely the confusion this lookup was fixed to avoid.
-            project.logger.warn(
-                "No 'mergedDefaults' on '${project.path}', so it is being validated against the " +
-                    "root project's metadata. Apply " +
-                    "'io.github.yonggoose.maven.central.utility.plugin.project' to '${project.path}' " +
-                    "to validate its own coordinates."
-            )
-            return rootExtras.get(key) as? OrganizationDefaults
-        }
-
-        return null
+        return extras.get(key) as? OrganizationDefaults
     }
 
     /**
@@ -200,6 +187,15 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             inspected++
         }
 
+        // Gradle Module Metadata is published and signed alongside the POM, so a missing
+        // module.json.asc is rejected at upload just like a missing pom.asc. It is optional --
+        // GenerateModuleMetadata can be disabled -- so it is only checked when it was produced.
+        val moduleFile = findModuleMetadataFile(project, publication)
+        if (moduleFile != null) {
+            verifyFileSignature(project, moduleFile, signatureFiles, "module metadata", errors)
+            inspected++
+        }
+
         val pomFile = findPomFile(project, publication)
         if (pomFile == null) {
             val pomTaskName = pomTaskNameFor(publication)
@@ -221,6 +217,17 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         kind: String,
         errors: MutableList<String>
     ) {
+        if (!file.exists()) {
+            // Say what actually went wrong. Without a signatory the Sign tasks are left out of
+            // the graph, and with them the tasks that would have built this file, so blaming a
+            // missing signature here would point at the wrong thing.
+            errors.add(
+                "$kind '${file.name}' has not been built, so its signature could not be checked " +
+                    "(expected the file at '${file.path}')."
+            )
+            return
+        }
+
         val signatureFile = PgpSignatureVerifier.resolveSignatureFor(file, signatureFiles)
 
         if (signatureFile == null) {
@@ -268,10 +275,17 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         return conventional.takeIf { it.exists() }
     }
 
-    private fun pomTaskNameFor(publication: MavenPublication): String {
-        val capitalized = publication.name.replaceFirstChar { it.uppercaseChar() }
-        return "$GENERATE_POM_TASK_PREFIX${capitalized}Publication"
+    /** The generated Gradle Module Metadata for [publication], or `null` if it was not produced. */
+    private fun findModuleMetadataFile(project: Project, publication: MavenPublication): File? {
+        val taskName = "generateMetadataFileFor${capitalize(publication.name)}Publication"
+        val task = project.tasks.withType(GenerateModuleMetadata::class.java).findByName(taskName)
+        return task?.outputFile?.orNull?.asFile?.takeIf { it.exists() }
     }
+
+    private fun pomTaskNameFor(publication: MavenPublication): String =
+        "$GENERATE_POM_TASK_PREFIX${capitalize(publication.name)}Publication"
+
+    private fun capitalize(value: String): String = value.replaceFirstChar { it.uppercaseChar() }
 
     companion object {
         private const val TASK_NAME = "checkProjectArtifact"

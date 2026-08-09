@@ -19,5 +19,9 @@ ktlint_code_style = intellij_idea
 indent_style = space
 indent_size = 2
 
+# gradlew.bat is a Windows batch file and must keep CRLF; the [*] rule above would break it.
+[*.bat]
+end_of_line = crlf
+
 [*.md]
 trim_trailing_whitespace = false

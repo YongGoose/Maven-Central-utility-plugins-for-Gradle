@@ -25,7 +25,8 @@ class LicenseContainer {
         licenses.add(spec.build())
     }
 
-    // Copied, not exposed: OrganizationDefaults is meant to be a snapshot, and merge() propagates
-    // the same list instance to every module that inherits it.
+    // A copy, not the backing list: OrganizationDefaults is a snapshot, and merge() hands the
+    // same instance to every module that inherits it. The elements are immutable data classes,
+    // so a shallow copy is enough.
     internal fun getLicenses(): List<License> = licenses.toList()
 }
