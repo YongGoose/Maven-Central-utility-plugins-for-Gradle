@@ -139,16 +139,20 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             errors.add("'maven-publish' plugin not found. PGP signature verification cannot be performed.")
             return SignatureCheck.SKIPPED
         }
-        if (signing == null) {
-            // This is a failure, not a skip: Maven Central will not accept unsigned artifacts.
-            errors.add("'signing' plugin not applied. Maven Central requires every published file to be signed.")
-            return SignatureCheck.SKIPPED
-        }
-
+        // Before the `signing` check: a module with no publications is not publishing anything,
+        // so demanding the signing plugin of it would be a compliance failure for a project that
+        // has nothing to comply about. `maven-publish` arriving from a convention plugin while
+        // the module declares no publication is a common shape.
         if (publishing.publications.isEmpty()) {
             project.logger.warn(
                 "No publications found in 'publishing' extension. Skipping PGP signature verification."
             )
+            return SignatureCheck.SKIPPED
+        }
+
+        if (signing == null) {
+            // This is a failure, not a skip: Maven Central will not accept unsigned artifacts.
+            errors.add("'signing' plugin not applied. Maven Central requires every published file to be signed.")
             return SignatureCheck.SKIPPED
         }
 
@@ -171,12 +175,16 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         }
 
         if (context.verified == 0) {
-            // `publications` can be non-empty while holding no MavenPublication at all -- an
-            // Ivy-only build, say. Claiming the signatures passed here would be the same
-            // fail-open reporting this task exists to remove.
-            project.logger.warn(
-                "No Maven publication files were inspected. Skipping PGP signature verification."
-            )
+            if (context.unsigned == 0) {
+                // `publications` can be non-empty while holding no MavenPublication at all -- an
+                // Ivy-only build, say. Claiming the signatures passed here would be the same
+                // fail-open reporting this task exists to remove.
+                project.logger.warn(
+                    "No Maven publication files were inspected. Skipping PGP signature verification."
+                )
+            }
+            // Otherwise files *were* inspected and none of them carried a signature. The per-file
+            // warnings already said which; saying "nothing was inspected" on top would be wrong.
             return SignatureCheck.SKIPPED
         }
         return if (context.unsigned == 0) SignatureCheck.VERIFIED else SignatureCheck.PARTIAL
@@ -309,13 +317,15 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     }
 
     /**
-     * The generated Gradle Module Metadata for [publication], or `null` if it is not part of the
-     * publication.
+     * The generated Gradle Module Metadata for [publication], or `null` when there is none to
+     * check.
      *
-     * The task's `enabled` flag is what decides that, not the file: disabling
-     * `GenerateModuleMetadata` on a project that published with it before leaves a stale
-     * `module.json` in `build/`, and keying off mere existence would then demand a signature for
-     * a file that is no longer published and therefore never signed.
+     * Requires both that the task is enabled and that the file is there, which covers
+     * `enabled = false`. It does **not** cover a task skipped by an `onlyIf` — Gradle disables
+     * module metadata that way for publications that cannot carry it — so a `build/` directory
+     * left over from when the publication *could* still holds a `module.json` that this will ask
+     * for a signature of. `./gradlew clean` clears it; there is no public API that reports an
+     * `onlyIf` verdict before execution.
      */
     private fun findModuleMetadataFile(project: Project, publication: MavenPublication): File? {
         val taskName = "generateMetadataFileFor${capitalize(publication.name)}Publication"
