@@ -17,6 +17,9 @@ allprojects {
 subprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "java")
+    // Without this, ktlintCheck only ever looked at the root project's .kts files -- the root has
+    // no Kotlin source set, so plugins/ and testing/ were never linted at all.
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
 
     dependencies {
         "implementation"(kotlin("stdlib"))

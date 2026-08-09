@@ -51,8 +51,12 @@ class PgpSignatureVerifierTest {
         signatureGenerator.update(source.readBytes())
 
         val target = File(tempDir, PgpSignatureVerifier.signatureNameFor(source))
-        ArmoredOutputStream(target.outputStream()).use { armored ->
-            BCPGOutputStream(armored).use { packets -> signatureGenerator.generate().encode(packets) }
+        // Close the file stream explicitly rather than relying on the BC wrappers to cascade:
+        // a leaked handle keeps Windows from deleting the @TempDir, failing the test afterwards.
+        target.outputStream().use { fileOut ->
+            ArmoredOutputStream(fileOut).use { armored ->
+                BCPGOutputStream(armored).use { packets -> signatureGenerator.generate().encode(packets) }
+            }
         }
         return target
     }

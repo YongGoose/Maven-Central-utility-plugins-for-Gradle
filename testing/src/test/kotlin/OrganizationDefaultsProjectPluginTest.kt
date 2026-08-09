@@ -37,12 +37,12 @@ class OrganizationDefaultsProjectPluginTest {
                 groupId = "io.github.yonggoose"
                 artifactId = "organization-defaults"
                 version = "1.0.0"
-                
+
                 name = "Test Organization"
                 description = "Organization defaults plugin test"
                 url = "https://example.org"
                 inceptionYear = "2023"
-                
+
                 licenses {
                     license {
                         name = "MIT"
@@ -57,12 +57,12 @@ class OrganizationDefaultsProjectPluginTest {
                         comments = "Apache License for open source projects"
                     }
                 }
-                
+
                 organization {
                     name = "YongGoose"
                     url = "https://github.com/YongGoose"
                 }
-                
+
                 developers {
                     developer {
                         id = "dev1"
@@ -77,7 +77,7 @@ class OrganizationDefaultsProjectPluginTest {
                         timezone = "UTC"
                     }
                 }
-                
+
                 mailingLists {
                     mailingList {
                         name = "Developers"
@@ -87,12 +87,12 @@ class OrganizationDefaultsProjectPluginTest {
                         archive = "https://example.org/archive"
                     }
                 }
-                
+
                 issueManagement {
                     system = "GitHub"
                     url = "https://github.com/YongGoose/organization-defaults/issues"
                 }
-                
+
                 scm {
                     url = "https://github.com/YongGoose/organization-defaults"
                     connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
@@ -121,12 +121,12 @@ class OrganizationDefaultsProjectPluginTest {
                     check(pom.groupId == "io.github.yonggoose")
                     check(pom.artifactId == "organization-defaults")
                     check(pom.version == "1.0.0")
-                    
+
                     check(pom.name == "Test Organization")
                     check(pom.description == "Organization defaults plugin test")
                     check(pom.url == "https://example.org")
                     check(pom.inceptionYear == "2023")
-                    
+
                     check(pom.licenses.size == 2)
                     check(pom.licenses[0].name == "MIT")
                     check(pom.licenses[0].url == "https://opensource.org/license/mit/")
@@ -136,10 +136,10 @@ class OrganizationDefaultsProjectPluginTest {
                     check(pom.licenses[1].url == "https://www.apache.org/licenses/LICENSE-2.0")
                     check(pom.licenses[1].distribution == "repo")
                     check(pom.licenses[1].comments == "Apache License for open source projects")
-                    
+
                     check(pom.organization?.name == "YongGoose")
                     check(pom.organization?.url == "https://github.com/YongGoose")
-                    
+
                     check(pom.developers.size == 2)
                     check(pom.developers[0].id == "dev1")
                     check(pom.developers[0].name == "Developer1")
@@ -203,12 +203,12 @@ class OrganizationDefaultsProjectPluginTest {
                 groupId = "io.github.yonggoose"
                 artifactId = "organization-defaults"
                 version = "1.0.0"
-                
+
                 name = "Test Organization"
                 description = "Organization defaults plugin test"
                 url = "https://example.org"
                 inceptionYear = "2023"
-                
+
                 licenses {
                     license {
                         name = "MIT"
@@ -223,12 +223,12 @@ class OrganizationDefaultsProjectPluginTest {
                         comments = "Apache License for open source projects"
                     }
                 }
-                
+
                 organization {
                     name = "YongGoose"
                     url = "https://github.com/YongGoose"
                 }
-                
+
                 developers {
                     developer {
                         id = "dev1"
@@ -241,7 +241,7 @@ class OrganizationDefaultsProjectPluginTest {
                         email = "dev2@example.com"
                     }
                 }
-                
+
                 mailingLists {
                     mailingList {
                         name = "Developers"
@@ -251,12 +251,12 @@ class OrganizationDefaultsProjectPluginTest {
                         archive = "https://example.org/archive"
                     }
                 }
-                
+
                 issueManagement {
                     system = "GitHub"
                     url = "https://github.com/YongGoose/organization-defaults/issues"
                 }
-                
+
                 scm {
                     url = "https://github.com/YongGoose/organization-defaults"
                     connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
@@ -274,17 +274,17 @@ class OrganizationDefaultsProjectPluginTest {
             plugins {
                 id("io.github.yonggoose.maven.central.utility.plugin.project")
             }
-            
+
             projectPom {
                 groupId = "io.github.yonggoose.sub"
                 artifactId = "organization-defaults-sub"
                 version = "2.0.0"
-                
+
                 name = "Subproject"
                 description = "Subproject description"
                 url = "https://www.google.com/"
                 inceptionYear = "2024"
-                
+
                 licenses {
                     license {
                         name = "MIT"
@@ -293,17 +293,17 @@ class OrganizationDefaultsProjectPluginTest {
                         comments = "MIT License for open source projects"
                     }
                 }
-                
+
                 organization {
                     name = "SubOrg"
                     url = "https://sub.example.org"
                 }
-                
+
                 issueManagement {
                     system = "JIRA"
                     url = "https://jira.example.org"
                 }
-                
+
                 scm {
                     url = "https://gitlab.com/project"
                     connection = "scm:git:git@gitlab.com:project.git"
@@ -321,21 +321,21 @@ class OrganizationDefaultsProjectPluginTest {
                     check(pom.groupId == "io.github.yonggoose.sub")
                     check(pom.artifactId == "organization-defaults-sub")
                     check(pom.version == "2.0.0")
-                    
+
                     check(pom.name == "Subproject")
                     check(pom.description == "Subproject description")
                     check(pom.url == "https://www.google.com/")
                     check(pom.inceptionYear == "2024")
-                    
+
                     check(pom.licenses.size == 1)
                     check(pom.licenses[0].name == "MIT")
                     check(pom.licenses[0].url == "https://opensource.org/license/mit/")
                     check(pom.licenses[0].distribution == "repo")
                     check(pom.licenses[0].comments == "MIT License for open source projects")
-                    
+
                     check(pom.organization?.name == "SubOrg")
                     check(pom.organization?.url == "https://sub.example.org")
-                    
+
                     check(pom.developers.size == 2)
                     check(pom.developers[0].id == "dev1")
                     check(pom.developers[0].name == "Developer1")
@@ -343,13 +343,13 @@ class OrganizationDefaultsProjectPluginTest {
                     check(pom.developers[1].id == "dev2")
                     check(pom.developers[1].name == "Developer2")
                     check(pom.developers[1].email == "dev2@example.com")
-                    
+
                     check(pom.mailingLists.size == 1)
                     check(pom.mailingLists[0].name == "Developers")
-                    
+
                     check(pom.issueManagement?.system == "JIRA")
                     check(pom.issueManagement?.url == "https://jira.example.org")
-                    
+
                     check(pom.scm?.url == "https://gitlab.com/project")
                     check(pom.scm?.connection == "scm:git:git@gitlab.com:project.git")
                     check(pom.scm?.developerConnection == "scm:git:git@gitlab.com:project.git")
