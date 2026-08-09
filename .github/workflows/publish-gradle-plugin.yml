@@ -33,9 +33,14 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # Inputs go through `env:` rather than being interpolated into the shell body: this job
+      # holds the publish credentials, and a value containing shell metacharacters would otherwise
+      # execute on the runner.
       - name: Validate inputs
+        env:
+          CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
-          if [ "${{ github.event.inputs.confirm }}" != "true" ]; then
+          if [ "$CONFIRM" != "true" ]; then
             echo "Deployment has been cancelled."
             exit 1
           fi
@@ -75,5 +80,7 @@ jobs:
       # Note: the `environment` input is not wired into the publish step -- every run targets the
       # real Gradle Plugin Portal -- so it is deliberately not mentioned here.
       - name: Notify success
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          echo "✅ Plugin ${{ github.event.inputs.version }} has been published to the Gradle Plugin Portal."
+          echo "✅ Plugin $VERSION has been published to the Gradle Plugin Portal."

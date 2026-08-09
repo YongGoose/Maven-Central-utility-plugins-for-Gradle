@@ -174,17 +174,18 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             validateMavenPublicationSignatures(context, publication)
         }
 
+        if (context.inspected == 0) {
+            // `publications` can be non-empty while holding no MavenPublication at all -- an
+            // Ivy-only build, say. Claiming the signatures passed here would be the same
+            // fail-open reporting this task exists to remove.
+            project.logger.warn(
+                "No Maven publication files were inspected. Skipping PGP signature verification."
+            )
+            return SignatureCheck.SKIPPED
+        }
+        // Counted separately from verified/unsigned: files can also be inspected and rejected,
+        // and inferring "nothing was inspected" from those two would contradict the errors.
         if (context.verified == 0) {
-            if (context.unsigned == 0) {
-                // `publications` can be non-empty while holding no MavenPublication at all -- an
-                // Ivy-only build, say. Claiming the signatures passed here would be the same
-                // fail-open reporting this task exists to remove.
-                project.logger.warn(
-                    "No Maven publication files were inspected. Skipping PGP signature verification."
-                )
-            }
-            // Otherwise files *were* inspected and none of them carried a signature. The per-file
-            // warnings already said which; saying "nothing was inspected" on top would be wrong.
             return SignatureCheck.SKIPPED
         }
         return if (context.unsigned == 0) SignatureCheck.VERIFIED else SignatureCheck.PARTIAL
@@ -204,6 +205,9 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         val signingRequired: Boolean,
         val errors: MutableList<String>
     ) {
+        /** Files this check looked at, whatever the verdict. */
+        var inspected: Int = 0
+
         /** Files whose signature was found and parsed. */
         var verified: Int = 0
 
@@ -278,6 +282,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         // Every publication writes its POM to build/publications/<name>/pom-default.xml, so the
         // file name alone cannot tell two publications apart in a report. Name both.
         val subject = "$kind of publication '${publication.name}' at '${file.path}'"
+        context.inspected++
 
         if (!file.exists()) {
             // A safety net rather than an expected path: the task depends on the publication's

@@ -24,7 +24,21 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
         }
 
         project.afterEvaluate {
-            val rootPomExt = project.rootProject.extensions.findByName(ROOT_EXTENSION_NAME) as? PomDefaultsExtension
+            val rootExtension = project.rootProject.extensions.findByName(ROOT_EXTENSION_NAME)
+            if (rootExtension != null && rootExtension !is PomDefaultsExtension) {
+                // Distinct from "the plugin was never applied": it was, and left an extension this
+                // build cannot read, which in practice means two versions of it on the build
+                // classpath under different classloaders. Silently treating it as absent would
+                // drop the organization defaults and surface as "Missing name / description / …".
+                throw IllegalStateException(
+                    "The root project's '$ROOT_EXTENSION_NAME' extension is a " +
+                        "${rootExtension.javaClass.name}, not a ${PomDefaultsExtension::class.java.name}. " +
+                        "Check for more than one version of " +
+                        "'io.github.yonggoose.maven.central.utility.plugin.project' on the build classpath."
+                )
+            }
+
+            val rootPomExt = rootExtension as? PomDefaultsExtension
             if (rootPomExt == null) {
                 project.logger.warn(
                     "No '$ROOT_EXTENSION_NAME' extension found on the root project, so only the " +
