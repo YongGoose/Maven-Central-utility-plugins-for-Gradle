@@ -37,8 +37,13 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             // (`useGpgCmd()`) always returns a signatory whether or not a secret key exists, and
             // PgpSignatoryProvider *builds* one on access — reading and parsing the key ring, and
             // throwing during task-graph resolution if the configured path is unusable, before
-            // any report could be printed. `signing { setRequired(false) }` is the supported way
-            // to run the metadata checks without keys.
+            // any report could be printed.
+            //
+            // Note that `signing { setRequired(false) }` only rescues a keyless machine when no
+            // signatory is configured either: Gradle's Sign carries
+            // `onlyIf { isRequired || signatory != null }`, so with `useGpgCmd()` it stays in the
+            // graph and fails there. `-x signMavenPublication` is the way out in that case; the
+            // docs spell both out.
             dependsOn(project.tasks.withType(Sign::class.java))
             dependsOn(project.tasks.withType(GenerateMavenPom::class.java))
             dependsOn(project.tasks.withType(GenerateModuleMetadata::class.java))
@@ -295,7 +300,11 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
         if (signatureFile == null || !signatureFile.exists()) {
             val problem = if (signatureFile == null) {
-                "No PGP signature is registered for $subject."
+                // Name the stale-output case: a build/ directory left over from when this
+                // publication still carried module metadata is the usual reason a file nothing
+                // publishes turns up here.
+                "No PGP signature is registered for $subject. If this file is left over from an " +
+                    "earlier publication layout, './gradlew clean' removes it."
             } else {
                 "The PGP signature for $subject was never produced (expected it at '${signatureFile.path}')."
             }

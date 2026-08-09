@@ -78,10 +78,19 @@ Validate before publishing:
 ./gradlew checkProjectArtifact
 ```
 
-The task depends on the `Sign` tasks, so on a machine with no signing key Gradle's signing plugin
-fails before any report is produced. Add `signing { setRequired(false) }` there to get a
-metadata-only run. See the [artifact validation guide](docs/artifact-validation.md) for what is
-checked and what is skipped.
+> [!IMPORTANT]
+> This Quick Start declares no publication and no `sign(…)`, so `checkProjectArtifact` validates
+> the **metadata only** and reports `PGP signature verification was SKIPPED`. A green run here does
+> not mean the artifacts are signed. Two more things are needed before publishing for real:
+>
+> 1. a `publishing { publications { … } }` block with `signing { sign(publishing.publications) }`;
+> 2. wiring `mergedDefaults` into `MavenPublication.pom` — this plugin does not do it for you, see
+>    the [Integration](#-integration) section below.
+
+The task depends on the `Sign` tasks, so on a machine with no usable signing key Gradle's signing
+plugin fails before any report is produced. See
+[artifact validation](docs/artifact-validation.md#current-limitations) for how to get a
+metadata-only run there — the answer depends on whether a signatory is configured.
 
 ## 🔗 Integration
 

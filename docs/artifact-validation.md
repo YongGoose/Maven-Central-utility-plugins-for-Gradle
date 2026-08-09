@@ -134,14 +134,18 @@ gpg: signing failed: No secret key
 
 That is unavoidable: the task has to depend on the `Sign` tasks for the signatures to exist at
 all, and there is no reliable way to tell in advance whether a configured signatory can actually
-sign — `useGpgCmd()` reports one whether or not a secret key is present. To run the metadata
-checks on such a machine, turn signing off:
+sign — `useGpgCmd()` reports one whether or not a secret key is present.
 
-```kotlin
-signing {
-    setRequired(false)
-}
-```
+How you get a metadata-only run depends on whether a **signatory** is configured, because Gradle
+skips a `Sign` task only when `!required && signatory == null`:
+
+| Your setup on that machine | What to do |
+|---|---|
+| No signatory (no `useGpgCmd()`, no `signing.keyId`/`secretKeyRingFile`, no in-memory keys) | `signing { setRequired(false) }` — Gradle skips the `Sign` tasks and the metadata checks run. |
+| A signatory is configured but cannot sign (`useGpgCmd()` with no secret key) | `setRequired(false)` is **not** enough: `signatory != null` keeps `Sign` in the graph and gpg fails. Exclude the signing tasks as well: `./gradlew checkProjectArtifact -x signMavenPublication` (with `setRequired(false)` so the missing signatures are warnings, not errors). |
+
+The second row is the common CI-without-the-key shape. If that is awkward for your build, keep the
+signatory configuration behind a condition so it is simply absent where the key is.
 
 ## Integrated Usage Example
 

@@ -101,8 +101,20 @@ rootProjectPom {
 ```
 
 A submodule that applies the plugin this way has no generated accessor, so it configures its own
-overrides through `configure<PomDefaultsExtension> { }` rather than `projectPom { }`. Declaring the
-plugin in each submodule's own `plugins { }` block keeps the nicer syntax.
+overrides through `configure<PomDefaultsExtension> { }` rather than `projectPom { }`, and needs the
+import:
+
+```kotlin
+// sub/build.gradle.kts
+import io.github.yonggoose.organizationdefaults.PomDefaultsExtension
+
+configure<PomDefaultsExtension> {
+    artifactId = "child-module"
+}
+```
+
+Declaring the plugin in each submodule's own `plugins { }` block keeps the nicer `projectPom { }`
+syntax and needs no import.
 
 ## Supported POM Elements
 - groupId, artifactId, version 
