@@ -368,8 +368,12 @@ class OrganizationDefaultsProjectPluginTest {
         Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyPom")?.outcome)
     }
 
+    /**
+     * `scm { }` / `organization { }` / `issueManagement { }` assign straight onto their container,
+     * so repeating a block has to accumulate rather than start from a blank slate.
+     */
     @Test
-    fun `repeating a single-value block merges instead of clearing earlier fields`() {
+    fun `repeating a single-value block accumulates instead of clearing earlier fields`() {
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
             import io.github.yonggoose.organizationdefaults.OrganizationDefaults

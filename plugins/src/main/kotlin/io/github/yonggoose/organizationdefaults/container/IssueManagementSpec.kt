@@ -13,16 +13,18 @@ class IssueManagementSpec {
 /**
  * Container class for managing issueManagement.
  *
- * Calling [issueManagement] more than once merges into what was already configured: only the
- * fields the block actually sets are overwritten, so a second block cannot silently clear
- * the first one.
+ * These properties are the `issueManagement { }` DSL surface — a build script's
+ * `issueManagement { system = "..." }` assigns to them directly, so they must stay publicly
+ * settable.
  */
 class IssueManagementContainer {
     var system: String? = null
-        private set
     var url: String? = null
-        private set
 
+    /**
+     * Applies an [IssueManagementSpec] on top of the current values, leaving fields the spec
+     * does not set untouched.
+     */
     fun issueManagement(action: IssueManagementSpec.() -> Unit) {
         val spec = IssueManagementSpec().apply(action)
         spec.system?.let { system = it }

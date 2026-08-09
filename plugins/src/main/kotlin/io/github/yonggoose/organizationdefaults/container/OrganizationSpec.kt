@@ -13,15 +13,17 @@ class OrganizationSpec {
 /**
  * Container class for managing organization.
  *
- * Calling [organization] more than once merges into what was already configured: only the fields
- * the block actually sets are overwritten, so a second block cannot silently clear the first one.
+ * These properties are the `organization { }` DSL surface — a build script's
+ * `organization { name = "..." }` assigns to them directly, so they must stay publicly settable.
  */
 class OrganizationContainer {
     var name: String? = null
-        private set
     var url: String? = null
-        private set
 
+    /**
+     * Applies an [OrganizationSpec] on top of the current values, leaving fields the spec does
+     * not set untouched.
+     */
     fun organization(action: OrganizationSpec.() -> Unit) {
         val spec = OrganizationSpec().apply(action)
         spec.name?.let { name = it }
