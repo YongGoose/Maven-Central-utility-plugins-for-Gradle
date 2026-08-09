@@ -1,4 +1,4 @@
-import org.gradle.testkit.runner.GradleRunner
+﻿import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -368,118 +368,7 @@ class OrganizationDefaultsProjectPluginTest {
         Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":sub:verifyPom")?.outcome)
     }
 
-    /**
-     * `scm { }` / `organization { }` / `issueManagement { }` assign straight onto their container,
-     * so repeating a block has to accumulate rather than start from a blank slate.
-     */
-    @Test
-    fun `repeating a single-value block accumulates instead of clearing earlier fields`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-            import io.github.yonggoose.organizationdefaults.OrganizationDefaults
-
-            plugins {
-                id("io.github.yonggoose.maven.central.utility.plugin.project")
-            }
-
-            rootProjectPom {
-                groupId = "io.github.yonggoose"
-
-                scm {
-                    url = "https://github.com/YongGoose/organization-defaults"
-                }
-                scm {
-                    connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                }
-
-                organization {
-                    name = "YongGoose"
-                }
-                organization {
-                    url = "https://github.com/YongGoose"
-                }
-
-                issueManagement {
-                    system = "GitHub"
-                }
-                issueManagement {
-                    url = "https://github.com/YongGoose/organization-defaults/issues"
-                }
-            }
-
-            tasks.register("verifyPom") {
-                doLast {
-                    val pom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
-
-                    check(pom.scm?.url == "https://github.com/YongGoose/organization-defaults") {
-                        "scm.url was cleared by the second scm block: " + pom.scm
-                    }
-                    check(pom.scm?.connection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
-
-                    check(pom.organization?.name == "YongGoose") {
-                        "organization.name was cleared by the second organization block: " + pom.organization
-                    }
-                    check(pom.organization?.url == "https://github.com/YongGoose")
-
-                    check(pom.issueManagement?.system == "GitHub") {
-                        "issueManagement.system was cleared by the second block: " + pom.issueManagement
-                    }
-                    check(pom.issueManagement?.url == "https://github.com/YongGoose/organization-defaults/issues")
-                }
-            }
-            """.trimIndent()
-        )
-
-        val result = GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
-            .withArguments("verifyPom", "--stacktrace")
-            .withPluginClasspath()
-            .forwardOutput()
-            .build()
-
-        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":verifyPom")?.outcome)
-    }
-
-    @Test
-    fun `unconfigured single-value blocks stay null instead of becoming empty objects`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-            import io.github.yonggoose.organizationdefaults.OrganizationDefaults
-
-            plugins {
-                id("io.github.yonggoose.maven.central.utility.plugin.project")
-            }
-
-            rootProjectPom {
-                groupId = "io.github.yonggoose"
-                artifactId = "organization-defaults"
-                version = "1.0.0"
-            }
-
-            tasks.register("verifyPom") {
-                doLast {
-                    val pom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
-
-                    check(pom.scm == null) { "expected scm to be null but was " + pom.scm }
-                    check(pom.organization == null) { "expected organization to be null but was " + pom.organization }
-                    check(pom.issueManagement == null) {
-                        "expected issueManagement to be null but was " + pom.issueManagement
-                    }
-                    check(pom.licenses.isEmpty())
-                    check(pom.developers.isEmpty())
-                    check(pom.mailingLists.isEmpty())
-                }
-            }
-            """.trimIndent()
-        )
-
-        val result = GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
-            .withArguments("verifyPom", "--stacktrace")
-            .withPluginClasspath()
-            .forwardOutput()
-            .build()
-
-        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":verifyPom")?.outcome)
-    }
+    // The container semantics that used to be exercised here (repeated blocks accumulating,
+    // unconfigured blocks staying null) now live in :plugins as PomMetadataExtensionTest --
+    // same coverage in milliseconds instead of a Gradle build each.
 }

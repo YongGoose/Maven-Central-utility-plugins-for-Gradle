@@ -3,281 +3,88 @@ import org.gradle.testkit.runner.TaskOutcome
 import org.gradle.testkit.runner.UnexpectedBuildFailure
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+/**
+ * Wiring tests for `checkProjectArtifact`: that the task runs, reaches the validator, and
+ * surfaces its report.
+ *
+ * The rules themselves are covered by the far cheaper unit tests in `:plugins`
+ * ([io.github.yonggoose.organizationdefaults.MavenCentralMetadataValidatorTest] and friends),
+ * so this class deliberately does not enumerate them again — each case here costs a Gradle build.
+ *
+ * Note there is no `@TestInstance(PER_CLASS)`: that made all of these share one `@TempDir`, so
+ * files written by one test leaked into the next.
+ */
 class ArtifactCheckPluginTest {
 
     @TempDir
     lateinit var projectDir: Path
 
+    private fun buildScript(content: String) {
+        projectDir.resolve("build.gradle.kts").toFile().writeText(content)
+    }
+
+    private fun runCheck() = GradleRunner.create()
+        .withProjectDir(projectDir.toFile())
+        .withArguments("checkProjectArtifact", "--stacktrace")
+        .withPluginClasspath()
+        .forwardOutput()
+
     @Test
-    fun `checkProjectArtifact task should pass`() {
+    fun `succeeds on a complete pom`() {
         projectDir.resolve("src/main/java/").toFile().mkdirs()
         projectDir.resolve("src/main/java/HelloWorld.java").toFile().writeText(
             """
-                public class HelloWorld {
-                    public static void main(String[] args) {
-                        System.out.println("Hello, World");
-                    }
-                }
-        """.trimIndent()
-        )
-
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-                plugins {
-                    java
-                    application
-                    signing
-                    id("com.vanniktech.maven.publish") version "0.34.0"
-                    id("io.github.yonggoose.maven.central.utility.plugin.check")
-                    id("io.github.yonggoose.maven.central.utility.plugin.project")
-                }
-        
-                application {
-                    mainClass = "HelloWorld" 
-                }
-                
-                signing {
-                    setRequired(false)
-                }
-                     
-                rootProjectPom {
-                    groupId = "io.github.yonggoose"
-                    artifactId = "organization-defaults"
-                    version = "1.0.0"
-                    
-                    name = "Test Organization"
-                    description = "Organization defaults plugin test"
-                    url = "https://example.org"
-                    
-                    licenses {
-                        license {
-                            name = "MIT License"
-                            url = "https://opensource.org/licenses/MIT"
-                            distribution = "repo"
-                            comments = "MIT License for open source projects"
-                        }
-                        license {
-                            name = "Apache License 2.0"
-                            url = "https://www.apache.org/licenses/LICENSE-2.0"
-                            distribution = "repo"
-                            comments = "Apache License for open source projects"
-                        }
-                    }
-                    
-                    developers {
-                        developer {
-                            id = "dev1"
-                            name = "Developer1"
-                            email = "dev1@example.com"
-                            timezone = "UTC"
-                            organization = "YongGoose"
-                            organizationUrl = "https://yonggoose.github.io"
-                        }
-                    }
-                    
-                    scm {
-                        url = "https://github.com/YongGoose/organization-defaults"
-                        connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                        developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                    }
-                } 
-                
-                mavenPublishing {
-                    publishToMavenCentral()
-                }
-        """.trimIndent()
-        )
-
-        val result = GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
-            .withArguments("checkProjectArtifact")
-            .withPluginClasspath()
-            .build()
-
-        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
-    }
-
-
-    @Test
-    fun `checkSettingsArtifact task should fail validation`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-            plugins {
-                id("io.github.yonggoose.maven.central.utility.plugin.check")
-                id("io.github.yonggoose.maven.central.utility.plugin.project")
-            }
-            
-            rootProjectPom {
-                groupId = "io.github.yonggoose"
-                artifactId = "organization-defaults"
-                version = "1.0.0"
-                
-                licenses {
-                    license {
-                        name = "MIT License"
-                        url = "https://opensource.org/licenses/MIT"
-                        distribution = "repo"
-                        comments = "MIT License for open source projects"
-                    }
-                    license {
-                        name = "Apache License 2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                        distribution = "repo"
-                        comments = "Apache License for open source projects"
-                    }
-                }
-                
-                developers {
-                    developer {
-                        id = "dev1"
-                        name = "Developer1"
-                        email = "dev1@example.com"
-                        timezone = "UTC"
-                    }
+            public class HelloWorld {
+                public static void main(String[] args) {
+                    System.out.println("Hello, World");
                 }
             }
             """.trimIndent()
         )
 
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("checkProjectArtifact")
-                .withPluginClasspath()
-                .build()
-        }
-        Assertions.assertTrue(exception.message?.contains("Validation failed") == true)
-    }
-
-    @Test
-    fun `should fail when groupId is invalid`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-        plugins {
-            id("io.github.yonggoose.maven.central.utility.plugin.check")
-            id("io.github.yonggoose.maven.central.utility.plugin.project")
-        }
-        rootProjectPom {
-            groupId = "invalidGroup"
-            artifactId = "organization-defaults"
-            version = "1.0.0"
-            name = "Test"
-            description = "desc"
-            url = "https://example.org"
-            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
-            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
-        }
-        """
-        )
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("checkProjectArtifact")
-                .withPluginClasspath()
-                .build()
-        }
-        Assertions.assertTrue(exception.message?.contains("Invalid groupId") == true)
-    }
-
-    @Test
-    fun `should fail when version ends with SNAPSHOT`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
-            """
-        plugins {
-            id("io.github.yonggoose.maven.central.utility.plugin.check")
-            id("io.github.yonggoose.maven.central.utility.plugin.project")
-        }
-        rootProjectPom {
-            groupId = "io.github.yonggoose"
-            artifactId = "organization-defaults"
-            version = "1.0.0-SNAPSHOT"
-            name = "Test"
-            description = "desc"
-            url = "https://example.org"
-            developers { developer { name = "dev"; email = "dev@example.com"; organization = "Org"; organizationUrl = "https://org.com" } }
-            scm { url = "url"; connection = "conn"; developerConnection = "devconn" }
-        }
-        """
-        )
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("checkProjectArtifact")
-                .withPluginClasspath()
-                .build()
-        }
-        Assertions.assertTrue(exception.message?.contains("Invalid version") == true)
-    }
-
-    @Test
-    fun `should accept groupIds containing digits and hyphens`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
+        buildScript(
             """
             plugins {
                 java
-                `maven-publish`
+                application
                 signing
+                id("com.vanniktech.maven.publish") version "0.34.0"
                 id("io.github.yonggoose.maven.central.utility.plugin.check")
                 id("io.github.yonggoose.maven.central.utility.plugin.project")
+            }
+
+            application {
+                mainClass = "HelloWorld"
             }
 
             signing {
                 setRequired(false)
             }
 
-            rootProjectPom {
-                groupId = "io.github.my-org2"
-                artifactId = "my-library"
-                version = "1.0.0"
+            ${PomFixture.pomBlock()}
 
-                name = "My Library"
-                description = "A library with a hyphenated, digit-bearing groupId"
-                url = "https://example.org"
-
-                licenses {
-                    license {
-                        name = "Apache-2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                        distribution = "repo"
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = "dev1"
-                        name = "Developer1"
-                        email = "dev1@example.com"
-                    }
-                }
-
-                scm {
-                    url = "https://github.com/YongGoose/my-library"
-                    connection = "scm:git:git@github.com:YongGoose/my-library.git"
-                    developerConnection = "scm:git:git@github.com:YongGoose/my-library.git"
-                }
+            mavenPublishing {
+                publishToMavenCentral()
             }
             """.trimIndent()
         )
 
-        val result = GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
-            .withArguments("checkProjectArtifact")
-            .withPluginClasspath()
-            .forwardOutput()
-            .build()
+        val result = runCheck().build()
 
         Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
+        Assertions.assertTrue(
+            result.output.contains("All validations including PGP signature verification passed"),
+            result.output
+        )
     }
 
     @Test
-    fun `should report the Maven Central required metadata that is missing`() {
-        projectDir.resolve("build.gradle.kts").toFile().writeText(
+    fun `lists every missing required field in one report`() {
+        buildScript(
             """
             plugins {
                 java
@@ -299,21 +106,59 @@ class ArtifactCheckPluginTest {
             """.trimIndent()
         )
 
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("checkProjectArtifact")
-                .withPluginClasspath()
-                .build()
-        }
+        val exception = assertThrows<UnexpectedBuildFailure> { runCheck().build() }
 
-        val message = exception.message ?: ""
-        Assertions.assertTrue(message.contains("Missing name"), message)
-        Assertions.assertTrue(message.contains("Missing description"), message)
-        Assertions.assertTrue(message.contains("Missing url"), message)
-        Assertions.assertTrue(message.contains("Missing licenses"), message)
-        Assertions.assertTrue(message.contains("Missing developers"), message)
-        Assertions.assertTrue(message.contains("Missing scm"), message)
+        assertValidationRejected(
+            exception,
+            "Missing name",
+            "Missing description",
+            "Missing url",
+            "Missing licenses",
+            "Missing developers",
+            "Missing scm"
+        )
     }
 
+    @Test
+    fun `reports a snapshot version`() {
+        buildScript(
+            """
+            plugins {
+                java
+                `maven-publish`
+                signing
+                id("io.github.yonggoose.maven.central.utility.plugin.check")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
+            }
+
+            signing {
+                setRequired(false)
+            }
+
+            ${PomFixture.pomBlock(version = "1.0.0-SNAPSHOT")}
+            """.trimIndent()
+        )
+
+        val exception = assertThrows<UnexpectedBuildFailure> { runCheck().build() }
+
+        assertValidationRejected(exception, "Invalid version")
+    }
+
+    @Test
+    fun `reports a missing maven-publish plugin`() {
+        buildScript(
+            """
+            plugins {
+                id("io.github.yonggoose.maven.central.utility.plugin.check")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
+            }
+
+            ${PomFixture.pomBlock()}
+            """.trimIndent()
+        )
+
+        val exception = assertThrows<UnexpectedBuildFailure> { runCheck().build() }
+
+        assertValidationRejected(exception, "'maven-publish' plugin not found")
+    }
 }

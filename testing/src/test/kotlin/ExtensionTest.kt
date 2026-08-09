@@ -5,6 +5,22 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
+/**
+ * ⚠️ This test covers a path nothing consumes.
+ *
+ * `OrganizationDefaultsSettingsPlugin` stores what `rootProjectSetting { }` configures into the
+ * `OrganizationDefaultsService` build service, but `OrganizationDefaultsProjectPlugin` never
+ * reads that service — it only looks at the root project's `rootProjectPom` extension. So
+ * metadata configured in `settings.gradle.kts` never reaches `mergedDefaults`, the generated POM,
+ * or `checkProjectArtifact`.
+ *
+ * The test passes anyway because it pulls the service out of `gradle.sharedServices` by hand and
+ * asserts the round-trip, i.e. it verifies storage rather than any user-visible behaviour. Read
+ * it as a characterisation test of the current wiring, not as evidence the settings plugin works.
+ *
+ * Tracked in https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/41 (C2):
+ * the settings plugin should either be wired into the merge chain or removed.
+ */
 class ExtensionTest {
 
     @TempDir

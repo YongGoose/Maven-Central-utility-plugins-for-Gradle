@@ -18,20 +18,7 @@ class ArtifactCheckMultiModuleTest {
     lateinit var projectDir: Path
 
     private fun writeMultiModuleProject(subProjectPom: String) {
-        projectDir.resolve("settings.gradle.kts").toFile().writeText(
-            """
-            pluginManagement {
-                repositories {
-                    mavenLocal()
-                    gradlePluginPortal()
-                }
-            }
-
-            rootProject.name = "root"
-            include("sub")
-
-            """.trimIndent()
-        )
+        projectDir.resolve("settings.gradle.kts").toFile().writeText(PomFixture.multiModuleSettings())
 
         projectDir.resolve("build.gradle.kts").toFile().writeText(
             """
@@ -39,37 +26,7 @@ class ArtifactCheckMultiModuleTest {
                 id("io.github.yonggoose.maven.central.utility.plugin.project")
             }
 
-            rootProjectPom {
-                groupId = "io.github.yonggoose"
-                artifactId = "organization-defaults"
-                version = "1.0.0"
-
-                name = "Test Organization"
-                description = "Organization defaults plugin test"
-                url = "https://example.org"
-
-                licenses {
-                    license {
-                        name = "Apache-2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                        distribution = "repo"
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = "dev1"
-                        name = "Developer1"
-                        email = "dev1@example.com"
-                    }
-                }
-
-                scm {
-                    url = "https://github.com/YongGoose/organization-defaults"
-                    connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                    developerConnection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
-                }
-            }
+            ${PomFixture.pomBlock()}
             """.trimIndent()
         )
 
@@ -93,6 +50,12 @@ class ArtifactCheckMultiModuleTest {
         )
     }
 
+    private fun runSubCheck() = GradleRunner.create()
+        .withProjectDir(projectDir.toFile())
+        .withArguments("sub:checkProjectArtifact", "--stacktrace")
+        .withPluginClasspath()
+        .forwardOutput()
+
     @Test
     fun `submodule overrides are validated, not the root project's metadata`() {
         writeMultiModuleProject(
@@ -103,20 +66,10 @@ class ArtifactCheckMultiModuleTest {
             """.trimIndent()
         )
 
-        val exception = assertThrows<UnexpectedBuildFailure> {
-            GradleRunner.create()
-                .withProjectDir(projectDir.toFile())
-                .withArguments("sub:checkProjectArtifact", "--stacktrace")
-                .withPluginClasspath()
-                .forwardOutput()
-                .build()
-        }
+        val exception = assertThrows<UnexpectedBuildFailure> { runSubCheck().build() }
 
         // Previously this validated the root's version (1.0.0) and reported success.
-        Assertions.assertTrue(
-            exception.message?.contains("Invalid version") == true,
-            exception.message ?: "no failure message"
-        )
+        assertValidationRejected(exception, "Invalid version")
     }
 
     @Test
@@ -129,12 +82,49 @@ class ArtifactCheckMultiModuleTest {
             """.trimIndent()
         )
 
-        val result = GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
-            .withArguments("sub:checkProjectArtifact", "--stacktrace")
-            .withPluginClasspath()
-            .forwardOutput()
-            .build()
+        val result = runSubCheck().build()
+
+        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":sub:checkProjectArtifact")?.outcome)
+    }
+
+    @Test
+    fun `a submodule can repair metadata the root project is missing`() {
+        projectDir.resolve("settings.gradle.kts").toFile().writeText(PomFixture.multiModuleSettings())
+
+        // The root only declares coordinates, so it would fail validation on its own.
+        projectDir.resolve("build.gradle.kts").toFile().writeText(
+            """
+            plugins {
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
+            }
+
+            rootProjectPom {
+                groupId = "io.github.yonggoose"
+                version = "1.0.0"
+            }
+            """.trimIndent()
+        )
+
+        val subDir = projectDir.resolve("sub").toFile().apply { mkdirs() }
+        subDir.resolve("build.gradle.kts").writeText(
+            """
+            plugins {
+                java
+                `maven-publish`
+                signing
+                id("io.github.yonggoose.maven.central.utility.plugin.check")
+                id("io.github.yonggoose.maven.central.utility.plugin.project")
+            }
+
+            signing {
+                setRequired(false)
+            }
+
+            ${PomFixture.pomBlock(extensionName = "projectPom", artifactId = "organization-defaults-sub")}
+            """.trimIndent()
+        )
+
+        val result = runSubCheck().build()
 
         Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":sub:checkProjectArtifact")?.outcome)
     }
