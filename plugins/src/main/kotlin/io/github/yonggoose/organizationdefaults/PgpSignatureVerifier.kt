@@ -65,23 +65,28 @@ object PgpSignatureVerifier {
         File(file.absoluteFile.parentFile, signatureNameFor(file))
 
     /**
-     * Finds the signature belonging to [file] among [signatureFiles], matching on the full path.
+     * Finds the signature belonging to [file] among [signatureFiles], matching on the full path
+     * and nothing else.
      *
-     * Every `MavenPublication` writes its POM to `build/publications/<name>/pom-default.xml`, so
-     * in a build with more than one publication — `java-gradle-plugin` alone adds a marker
-     * publication per declared plugin — every POM signature is called `pom-default.xml.asc`.
-     * Matching on the name alone would pair a POM with another publication's signature.
-     *
-     * A bare-name match is accepted as a fallback for signing setups that write signatures
-     * somewhere other than beside the file, but only when exactly one candidate carries that
-     * name. Ambiguity resolves to `null`: pairing the wrong files is the failure mode this whole
-     * check exists to prevent.
+     * Gradle's `Signature` always writes beside the file it signs, so the sibling path is the only
+     * correct answer. Falling back to a name match is not a safe relaxation: every
+     * `MavenPublication` writes its POM to `build/publications/<name>/pom-default.xml`, and
+     * [signatureFiles] spans the whole project, so an unsigned publication's `pom-default.xml`
+     * would happily match a *different* publication's `pom-default.xml.asc` and — since this
+     * verifier only inspects structure — be reported as verified.
      */
     fun resolveSignatureFor(file: File, signatureFiles: Collection<File>): File? {
         val expected = expectedSignatureFor(file)
-        signatureFiles.firstOrNull { it.absoluteFile == expected }?.let { return it }
+        return signatureFiles.firstOrNull { it.absoluteFile == expected }
+    }
 
-        return signatureFiles.filter { it.name == expected.name }.singleOrNull()
+    /**
+     * Signatures that carry the right name but sit somewhere other than beside [file]. Never
+     * accepted as a match; surfaced only so a "signature not found" report can point at them.
+     */
+    fun misplacedCandidatesFor(file: File, signatureFiles: Collection<File>): List<File> {
+        val expected = expectedSignatureFor(file)
+        return signatureFiles.filter { it.name == expected.name && it.absoluteFile != expected }
     }
 
     fun verify(artifactFile: File, signatureFile: File): SignatureVerification {

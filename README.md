@@ -32,9 +32,16 @@ Not yet published to Maven Central. (Will be available soon.)
 
 ---
 ## ⚡ Quick Start
-Setup in `build.gradle.kts`. These are exactly the fields Maven Central requires, so this is also
-the smallest configuration that passes `checkProjectArtifact`:
+Setup in `build.gradle.kts`. The metadata below is exactly the set Maven Central requires, which is
+also what `checkProjectArtifact` looks for:
 ```kotlin
+plugins {
+    `maven-publish`
+    signing
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
+}
+
 rootProjectPom {
     groupId = "io.github.yonggoose"
     artifactId = "my-project"
@@ -70,6 +77,10 @@ Validate before publishing:
 ```bash
 ./gradlew checkProjectArtifact
 ```
+
+The signature checks need a publication to sign and a signatory to sign it with; without one the
+task still reports on the metadata and tells you the signature verification was skipped. See the
+[artifact validation guide](docs/artifact-validation.md) for the details.
 
 ## 🔗 Integration
 

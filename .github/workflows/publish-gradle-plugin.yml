@@ -72,6 +72,8 @@ jobs:
           GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
         run: ./gradlew publishPlugins
 
+      # Note: the `environment` input is not wired into the publish step -- every run targets the
+      # real Gradle Plugin Portal -- so it is deliberately not mentioned here.
       - name: Notify success
         run: |
-          echo "✅ Plugin ${{ github.event.inputs.version }} has been successfully deployed to the ${{ github.event.inputs.environment }} environment!"
+          echo "✅ Plugin ${{ github.event.inputs.version }} has been published to the Gradle Plugin Portal."

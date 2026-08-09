@@ -166,27 +166,44 @@ class PgpSignatureVerifierTest {
     }
 
     @Test
-    fun `an unambiguous name match is accepted when the signature is not a sibling`() {
-        val jar = File(tempDir, "libs/my-library-1.0.0.jar")
-        val elsewhere = listOf(File(tempDir, "signatures/my-library-1.0.0.jar.asc"))
+    fun `a correctly named signature in another directory is never accepted`() {
+        // The dangerous case is a single candidate: sign only one of several publications and the
+        // unsigned ones each have exactly one same-named .asc lying around. A name-based fallback
+        // would pair them up and, since verification is structure-only, call them verified.
+        val unsignedPom = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml")
+        val otherPublication = listOf(File(tempDir, "publications/pluginMaven/pom-default.xml.asc"))
 
-        assertEquals(
-            elsewhere.single().absoluteFile,
-            PgpSignatureVerifier.resolveSignatureFor(jar, elsewhere)?.absoluteFile
+        assertNull(
+            PgpSignatureVerifier.resolveSignatureFor(unsignedPom, otherPublication),
+            "a signature belonging to another publication must not satisfy this one"
         )
     }
 
     @Test
-    fun `an ambiguous name match with no sibling resolves to nothing`() {
+    fun `several same-named signatures with no sibling resolve to nothing`() {
         val pom = File(tempDir, "publications/pluginMaven/pom-default.xml")
         val decoys = listOf(
             File(tempDir, "publications/otherA/pom-default.xml.asc"),
             File(tempDir, "publications/otherB/pom-default.xml.asc")
         )
 
-        assertNull(
-            PgpSignatureVerifier.resolveSignatureFor(pom, decoys),
-            "an ambiguous match must fail closed rather than pick one arbitrarily"
+        assertNull(PgpSignatureVerifier.resolveSignatureFor(pom, decoys))
+    }
+
+    @Test
+    fun `misplaced candidates are reported but never returned as matches`() {
+        val pom = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml")
+        val sibling = File(tempDir, "publications/pluginMarkerMaven/pom-default.xml.asc")
+        val elsewhere = File(tempDir, "publications/pluginMaven/pom-default.xml.asc")
+
+        assertEquals(
+            listOf(elsewhere.absoluteFile),
+            PgpSignatureVerifier.misplacedCandidatesFor(pom, listOf(elsewhere)).map { it.absoluteFile }
+        )
+        // The sibling is a real match, so it is not "misplaced".
+        assertEquals(
+            emptyList(),
+            PgpSignatureVerifier.misplacedCandidatesFor(pom, listOf(sibling))
         )
     }
 
