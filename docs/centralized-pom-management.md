@@ -81,13 +81,17 @@ plugins {
 }
 ```
 
-A convenient alternative for a multi-module build is to apply it to every project at once. Use
-`allprojects`, not `subprojects` — the root needs the plugin too, since that is what registers the
-`rootProjectPom` extension holding the organization-wide defaults:
+For a multi-module build you can apply it once in the root's `plugins { }` block and hand it to
+the submodules from there. The root must go through `plugins { }` — that is both what puts the
+plugin on the script's classpath and what makes the `rootProjectPom { }` accessor available:
 
 ```kotlin
 // build.gradle.kts
-allprojects {
+plugins {
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+}
+
+subprojects {
     apply(plugin = "io.github.yonggoose.maven.central.utility.plugin.project")
 }
 
@@ -95,6 +99,10 @@ rootProjectPom {
     // organization-wide defaults
 }
 ```
+
+A submodule that applies the plugin this way has no generated accessor, so it configures its own
+overrides through `configure<PomDefaultsExtension> { }` rather than `projectPom { }`. Declaring the
+plugin in each submodule's own `plugins { }` block keeps the nicer syntax.
 
 ## Supported POM Elements
 - groupId, artifactId, version 

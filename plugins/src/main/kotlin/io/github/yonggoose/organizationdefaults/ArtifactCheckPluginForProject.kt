@@ -126,7 +126,8 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return false
         }
         if (signing == null) {
-            errors.add("'signing' plugin is not configured to sign publications. Verification skipped.")
+            // This is a failure, not a skip: Maven Central will not accept unsigned artifacts.
+            errors.add("'signing' plugin not applied. Maven Central requires every published file to be signed.")
             return false
         }
 
@@ -224,7 +225,20 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
         if (signatureFile == null) {
             val expected = PgpSignatureVerifier.expectedSignatureFor(file)
-            errors.add("PGP signature not found for $kind '${file.name}' (expected '${expected.path}').")
+            val sameName = signatureFiles.filter { it.name == expected.name }
+
+            // Distinguish "nothing signed this" from "several candidates and none beside the
+            // file": in the ambiguous case the signatures do exist, and pointing at the sibling
+            // path would send the reader looking for a file that was never going to be there.
+            if (sameName.size > 1) {
+                errors.add(
+                    "PGP signature for $kind '${file.name}' is ambiguous: nothing at " +
+                        "'${expected.path}', and ${sameName.size} candidates share the name " +
+                        "'${expected.name}' (${sameName.joinToString { it.path }})."
+                )
+            } else {
+                errors.add("PGP signature not found for $kind '${file.name}' (expected '${expected.path}').")
+            }
             return
         }
 

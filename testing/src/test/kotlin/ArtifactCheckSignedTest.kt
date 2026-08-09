@@ -106,7 +106,7 @@ class ArtifactCheckSignedTest {
 
         val result = GradleRunner.create()
             .withProjectDir(projectDir.toFile())
-            .withArguments("checkProjectArtifact", "--stacktrace")
+            .withArguments("checkProjectArtifact", "--info", "--stacktrace")
             .withPluginClasspath()
             .forwardOutput()
             .build()
@@ -117,6 +117,17 @@ class ArtifactCheckSignedTest {
         Assertions.assertTrue(
             result.output.contains("metadata and PGP signatures verified successfully"),
             result.output
+        )
+
+        // The overall verdict alone cannot tell "everything was checked" from "only the POM was";
+        // `--info` logs one line per file, so assert both kinds were reached.
+        Assertions.assertTrue(
+            result.output.contains("PGP signature verified for artifact"),
+            "the jar's own signature was never inspected"
+        )
+        Assertions.assertTrue(
+            result.output.contains("PGP signature verified for POM pom-default.xml"),
+            "the POM signature was never inspected"
         )
 
         // The conditional dependsOn(provider { ... }) has to have pulled Sign into the graph,

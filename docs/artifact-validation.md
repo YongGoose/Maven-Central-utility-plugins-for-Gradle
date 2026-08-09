@@ -29,8 +29,8 @@ result of merging `rootProjectPom` with that module's `projectPom`. Running
 > [!IMPORTANT]
 > The task validates **the metadata you configured through this plugin** (`mergedDefaults`), not
 > the XML of the POM that will actually be uploaded. This plugin does not write `mergedDefaults`
-> into `MavenPublication.pom` for you — see the
-> [vanniktech integration example](../README.md#integration) for wiring it up. If you configure
+> into `MavenPublication.pom` for you — see the "Integration" section of the
+> [README](../README.md) for wiring it up. If you configure
 > `rootProjectPom` but never feed it into your publication, `checkProjectArtifact` passes while
 > the published POM is still empty.
 
@@ -98,13 +98,16 @@ verified:
 ```
 
 On a machine with **no signatory configured** (a contributor without GPG keys, or CI without the
-key), the `Sign` tasks are left out of the dependency graph so you still get the report; the
-signatures are then reported as missing:
+key), the `Sign` tasks are left out of the dependency graph so you still get the metadata report
+instead of Gradle's `Cannot perform signing task … no configured signatory`. The signature checks
+then fail, because the `.asc` files the publication declares were never produced:
 
 ```
 Validation failed:
-PGP signature not found for artifact 'my-library-1.0.0.jar' (expected '…/my-library-1.0.0.jar.asc').
+PGP signature verification FAILED for POM 'pom-default.xml': Signature file does not exist: …/pom-default.xml.asc
 ```
+
+Set `signing { setRequired(false) }` if you want a clean metadata-only run on such a machine.
 
 ## Integrated Usage Example
 
