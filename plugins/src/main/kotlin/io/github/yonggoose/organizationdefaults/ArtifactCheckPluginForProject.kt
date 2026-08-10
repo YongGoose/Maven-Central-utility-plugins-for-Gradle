@@ -302,9 +302,13 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
         val pomFile = findPomFile(context.project, publication)
         if (pomFile == null) {
+            // Not "run the task first": this task depends on every GenerateMavenPom, so the only
+            // way to get here is a POM task that was disabled or excluded from this build. Telling
+            // the user to run what they just opted out of would send them in a circle.
             context.errors.add(
-                "POM file for publication '${publication.name}' was not found, so its signature " +
-                    "could not be verified. Run '${pomTaskNameFor(publication)}' first."
+                "No POM was generated for publication '${publication.name}', so its signature " +
+                    "could not be verified. '${pomTaskNameFor(publication)}' was disabled or " +
+                    "excluded from this build; Maven Central requires a POM for every artifact."
             )
             return
         }
@@ -334,11 +338,16 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
         if (signatureFile == null || !signatureFile.exists()) {
             val problem = if (signatureFile == null) {
-                // Name the stale-output case: a build/ directory left over from when this
-                // publication still carried module metadata is the usual reason a file nothing
-                // publishes turns up here.
-                "No PGP signature is registered for $subject. If this file is left over from an " +
-                    "earlier publication layout, './gradlew clean' removes it."
+                // Lead with the cause that is actually common. `sign(configurations["archives"])`
+                // covers the jar but not the POM or module.json, and those two land here with
+                // signing still required. The stale-output case -- a build/ directory left over
+                // from when this publication still carried module metadata -- is second, and
+                // deliberately so: './gradlew clean' would delete a POM this build just generated.
+                "No PGP signature is registered for $subject. Check that the project's " +
+                    "'signing { sign(...) }' covers this file -- 'sign(publishing.publications)' " +
+                    "covers a publication's artifacts, its POM and its module metadata. If instead " +
+                    "the file is left over from an earlier publication layout and nothing publishes " +
+                    "it any more, './gradlew clean' removes it."
             } else {
                 "The PGP signature for $subject was never produced (expected it at '${signatureFile.path}')."
             }
