@@ -13,7 +13,7 @@ dependencies {
 
     // Unit tests for the validation rules; the TestKit integration tests live in :testing.
     testImplementation(kotlin("test"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
