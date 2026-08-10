@@ -21,7 +21,7 @@ import java.security.Security
 import java.util.Date
 
 /**
- * The only test that drives a real signed build end to end.
+ * The only tests that drive a real signed build end to end.
  *
  * Every other TestKit case sets `signing { setRequired(false) }` and produces no signatures, so
  * `validatePgpSignatures` returns before a single `.asc` is looked at — leaving the signature
@@ -149,7 +149,44 @@ class ArtifactCheckSignedTest {
         )
     }
 
-    // A "signature is missing" case cannot be staged here: deleting an .asc makes its Sign task
-    // out of date, so the next run simply regenerates it. PgpSignatureVerifierTest drives verify()
+    /**
+     * The stale-`build/` case: sign once, then run again with signing excluded.
+     *
+     * Every `.asc` from the first run is still on disk and every `Signature` object still declares
+     * it, so a check that asks only `does this file exist` reports the artifacts as verified while
+     * this build signed nothing. The signatures have to be tied to their `Sign` task's outcome for
+     * the second run to come back honest.
+     */
+    @Test
+    fun `signatures left over from an earlier run are not counted as this build's`() {
+        writeSignedProject()
+
+        GradleRunner.create()
+            .withProjectDir(projectDir.toFile())
+            .withArguments("checkProjectArtifact")
+            .withPluginClasspath()
+            .forwardOutput()
+            .build()
+
+        val result = GradleRunner.create()
+            .withProjectDir(projectDir.toFile())
+            .withArguments("checkProjectArtifact", "-x", "signMavenPublication", "--stacktrace")
+            .withPluginClasspath()
+            .forwardOutput()
+            .buildAndFail()
+
+        Assertions.assertEquals(TaskOutcome.FAILED, result.task(":checkProjectArtifact")?.outcome)
+        Assertions.assertTrue(
+            result.output.contains("No PGP signatures were produced"),
+            result.output
+        )
+        Assertions.assertFalse(
+            result.output.contains("verified successfully"),
+            "leftover .asc files were reported as a successful verification"
+        )
+    }
+
+    // A *corrupt* signature cannot be staged here: rewriting an .asc makes its Sign task out of
+    // date, so the next run simply regenerates it. PgpSignatureVerifierTest drives verify()
     // directly for those.
 }

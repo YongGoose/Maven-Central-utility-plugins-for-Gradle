@@ -89,6 +89,13 @@ Each file is paired with its signature using the mapping **Gradle itself records
   signature, or one publication's `pom-default.xml.asc` standing in for another's — are impossible
   by construction rather than guarded against.
 
+Only signatures **this build produced** count. A `Sign` task that did not run — skipped by its
+`onlyIf`, disabled, or excluded with `-x signMavenPublication` — contributes nothing, even when an
+`.asc` file from an earlier run is still sitting in `build/`. Otherwise a dirty `build/` directory
+would report `PGP signatures verified successfully` for artifacts that were just rebuilt
+underneath a stale signature, which is the fail-open reporting this task exists to remove. The
+generated POM and module metadata are decided the same way, by their producing task's outcome.
+
 The flip side is that **signatures the Gradle `signing` plugin did not create are invisible**. If
 you sign artifacts with an external tool and drop the files into `build/`, `checkProjectArtifact`
 reports them as unsigned.

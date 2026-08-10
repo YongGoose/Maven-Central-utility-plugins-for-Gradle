@@ -11,6 +11,8 @@ import org.gradle.plugins.signing.Sign
 import org.gradle.plugins.signing.Signature
 import org.gradle.plugins.signing.SigningExtension
 import java.io.File
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /**
  * A Gradle plugin that adds an artifact verification task to the project.
@@ -233,6 +235,14 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
      * registered through `sign(Task)` / `sign(Configuration)`; `sign(publishing.publications)` —
      * the setup Maven Central publishers actually use — attaches them to the publication and
      * leaves that configuration empty.
+     *
+     * Signatures whose `Sign` task did not run in this build are left out, for the same reason
+     * [findModuleMetadataFile] keys off the task's outcome: the `Signature` objects exist whether
+     * or not anything signed, so `file.exists()` on its own would let a stale `.asc` in a dirty
+     * `build/` stand in for a signature this build never produced. That is not a corner case — it
+     * is exactly what `-x signMavenPublication`, and `setRequired(false)` on a keyless machine,
+     * leave behind, and both would otherwise turn a SKIPPED report into VERIFIED while the
+     * artifacts were rebuilt underneath the old signature.
      */
     private fun collectSignatures(project: Project, signing: SigningExtension): Map<File, File> {
         val bySignedFile = LinkedHashMap<File, File>()
@@ -243,11 +253,35 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             bySignedFile[signed.absoluteFile] = signatureFile
         }
 
-        signing.configuration.artifacts.filterIsInstance<Signature>().forEach(::record)
-        project.tasks.withType(Sign::class.java).forEach { task -> task.signatures.forEach(::record) }
+        // Identity, not equality: two signatures over different files can compare equal by name,
+        // and all this set has to answer is "did some Sign task already account for this object".
+        val ownedByTask: MutableSet<Signature> = Collections.newSetFromMap(IdentityHashMap())
+        project.tasks.withType(Sign::class.java).forEach { task ->
+            ownedByTask.addAll(task.signatures)
+            if (task.producedSignatures()) {
+                task.signatures.forEach(::record)
+            }
+        }
+
+        // Whatever is left in the configuration has no Sign task to judge it by; take it as is.
+        signing.configuration.artifacts
+            .filterIsInstance<Signature>()
+            .filterNot { it in ownedByTask }
+            .forEach(::record)
 
         return bySignedFile
     }
+
+    /**
+     * Whether [this] task's signature files come from this build.
+     *
+     * `checkProjectArtifact` depends on every `Sign` task, so by the time this runs each one has a
+     * final state: it either did work or was up to date — the signatures on disk are current
+     * either way — or it did neither, having been skipped by its `onlyIf`, disabled, or excluded
+     * with `-x` (an excluded task is never executed at all, so `didWork` and `upToDate` are both
+     * false and it is correctly rejected).
+     */
+    private fun Sign.producedSignatures(): Boolean = state.didWork || state.upToDate
 
     private fun validateMavenPublicationSignatures(
         context: SignatureCheckContext,
@@ -353,16 +387,17 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
     /**
      * The generated POM for [publication], or `null` when this build did not generate one.
      *
-     * `maven-publish` creates a `GenerateMavenPom` task for every `MavenPublication` and this task
-     * depends on all of them, so the task's `destination` is the answer whenever there is one.
-     * There is deliberately no fallback to the conventional
-     * `build/publications/<name>/pom-default.xml` path: it could only ever be reached when this
-     * build did *not* produce that POM, i.e. when the file is left over from an earlier one, and
-     * validating a stale POM is worse than reporting that none was generated.
+     * Decided by the task's outcome for the same reason as [findModuleMetadataFile]: a
+     * `GenerateMavenPom` that was disabled or excluded leaves its `destination` pointing at
+     * whatever an earlier build wrote there, and validating a stale POM — or demanding a signature
+     * for one this build will not publish — is worse than reporting that none was generated. There
+     * is no fallback to the conventional `build/publications/<name>/pom-default.xml` path either,
+     * for the same reason.
      */
     private fun findPomFile(project: Project, publication: MavenPublication): File? =
         project.tasks.withType(GenerateMavenPom::class.java)
             .findByName(pomTaskNameFor(publication))
+            ?.takeIf { it.state.didWork || it.state.upToDate }
             ?.destination
             ?.takeIf { it.exists() }
 
