@@ -51,7 +51,7 @@ jobs:
           ref: ${{ github.event.inputs.version }}
 
       - name: Validate wrapper checksum
-        uses: gradle/actions/wrapper-validation@v4
+        uses: gradle/actions/wrapper-validation@v6
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -60,7 +60,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Run tests before publishing
         run: ./gradlew build --stacktrace
