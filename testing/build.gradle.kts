@@ -9,7 +9,7 @@ dependencies {
     // Generates the throwaway signing key ArtifactCheckSignedTest feeds to useInMemoryPgpKeys.
     testImplementation("org.bouncycastle:bcpg-jdk18on:1.77")
     testImplementation(kotlin("test-junit5"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
 }
 
 gradlePlugin {
