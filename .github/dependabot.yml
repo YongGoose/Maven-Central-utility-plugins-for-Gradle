@@ -1,0 +1,27 @@
+version: 2
+
+updates:
+  # Actions pinned by major tag still need bumping when a major is released.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+
+  # Keeps BouncyCastle, Kotlin, ktlint and the plugin-publish plugin current. Dependabot only
+  # scans the directories listed here, and the interesting dependencies live in the subprojects.
+  - package-ecosystem: "gradle"
+    directories:
+      - "/"
+      - "/plugins"
+      - "/testing"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "build"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 5

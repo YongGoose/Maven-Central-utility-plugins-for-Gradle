@@ -28,5 +28,8 @@ class DevelopersContainer {
         developers.add(spec.build())
     }
 
-    internal fun getDevelopers(): List<Developer> = developers
+    // A copy, not the backing list: OrganizationDefaults is a snapshot, and merge() hands the
+    // same instance to every module that inherits it. The elements are immutable data classes,
+    // so a shallow copy is enough.
+    internal fun getDevelopers(): List<Developer> = developers.toList()
 }

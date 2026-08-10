@@ -8,10 +8,45 @@ on:
       - 'docs/**'
       - '*.md'
 
+permissions:
+  contents: read
+
+# Superseded pushes to the same branch stop burning runners. Never cancel a main build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
-  ci:
+  # gradle-wrapper.jar is a binary committed to the repository, so verify it matches a
+  # published Gradle release before any job is allowed to execute it.
+  validate-wrapper:
+    name: Validate Gradle wrapper
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate wrapper checksum
+        uses: gradle/actions/wrapper-validation@v4
+
+  ci:
+    name: Build (${{ matrix.os }})
+    needs: validate-wrapper
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The plugin is developed on Windows and released for Linux CI users; both
+        # need to stay green, and the TestKit tests are the most path-sensitive part.
+        os: [ ubuntu-latest, windows-latest ]
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -23,18 +58,20 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Only the main branch writes to the shared cache; PRs read it.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build with Gradle
-        run: |
-          ./gradlew build --no-daemon --stacktrace
+        run: ./gradlew build --stacktrace
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: test-results-${{ matrix.os }}
           path: |
             **/build/test-results/
             **/build/reports/

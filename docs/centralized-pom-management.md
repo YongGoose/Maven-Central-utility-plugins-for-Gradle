@@ -20,7 +20,7 @@ In `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.6"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
 }
 
 rootProjectPom {
@@ -62,11 +62,59 @@ rootProjectPom {
 
 The plugin is implemented via the `OrganizationDefaultsProjectPlugin` class and stores all POM metadata in the `OrganizationDefaults` data class.
 
-The `rootProjectPom` configuration in the root project is stored in the project’s `extraProperties` as `mergedDefaults`, making it accessible from all submodules:
+The plugin writes the result of merging `rootProjectPom` with the module's own `projectPom` into
+**each project's** `extraProperties` under the key `mergedDefaults`. Read it from the project you
+are configuring, not from the root — the root's entry does not contain that module's overrides:
 
 ```kotlin
-val pom = project.rootProject.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
+val pom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults
 ```
+
+For that to work, **every module that reads `mergedDefaults` must also apply the plugin** — it is
+what creates the entry (and the module's own `projectPom` block). Applying it only in the root
+leaves submodules without one:
+
+```kotlin
+// sub/build.gradle.kts
+plugins {
+    id("io.github.yonggoose.maven.central.utility.plugin.project")
+}
+```
+
+For a multi-module build you can apply it once in the root's `plugins { }` block and hand it to
+the submodules from there. The root must go through `plugins { }` — that is both what puts the
+plugin on the script's classpath and what makes the `rootProjectPom { }` accessor available:
+
+```kotlin
+// build.gradle.kts
+plugins {
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+}
+
+subprojects {
+    apply(plugin = "io.github.yonggoose.maven.central.utility.plugin.project")
+}
+
+rootProjectPom {
+    // organization-wide defaults
+}
+```
+
+A submodule that applies the plugin this way has no generated accessor, so it configures its own
+overrides through `configure<PomDefaultsExtension> { }` rather than `projectPom { }`, and needs the
+import:
+
+```kotlin
+// sub/build.gradle.kts
+import io.github.yonggoose.organizationdefaults.PomDefaultsExtension
+
+configure<PomDefaultsExtension> {
+    artifactId = "child-module"
+}
+```
+
+Declaring the plugin in each submodule's own `plugins { }` block keeps the nicer `projectPom { }`
+syntax and needs no import.
 
 ## Supported POM Elements
 - groupId, artifactId, version 

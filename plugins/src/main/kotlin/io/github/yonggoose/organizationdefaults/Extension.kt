@@ -1,11 +1,5 @@
 package io.github.yonggoose.organizationdefaults
 
-import io.github.yonggoose.organizationdefaults.container.DevelopersContainer
-import io.github.yonggoose.organizationdefaults.container.IssueManagementContainer
-import io.github.yonggoose.organizationdefaults.container.LicenseContainer
-import io.github.yonggoose.organizationdefaults.container.MailingListsContainer
-import io.github.yonggoose.organizationdefaults.container.OrganizationContainer
-import io.github.yonggoose.organizationdefaults.container.ScmContainer
 import org.gradle.api.Plugin
 import org.gradle.api.initialization.Settings
 import org.gradle.api.provider.ListProperty
@@ -15,72 +9,11 @@ import org.gradle.api.services.BuildServiceParameters
 
 /**
  * Extension for specifying organization-wide default metadata for Gradle projects.
+ *
+ * Registered as `rootProjectSetting` by [OrganizationDefaultsSettingsPlugin]. The DSL itself
+ * lives in [AbstractPomMetadataExtension].
  */
-open class OrganizationDefaultsExtension {
-    var groupId: String? = null
-    var artifactId: String? = null
-    var version: String? = null
-
-    var name: String? = null
-    var description: String? = null
-    var url: String? = null
-    var inceptionYear: String? = null
-
-    private val licenseContainer = LicenseContainer()
-    private val developersContainer = DevelopersContainer()
-    private val mailingListsContainer = MailingListsContainer()
-    private val issueManageMentContainer = IssueManagementContainer()
-    private val organizationContainer = OrganizationContainer()
-    private val scmContainer = ScmContainer()
-
-    var licenses: List<License> = emptyList()
-        get() = licenseContainer.getLicenses()
-        private set
-
-    var developers: List<Developer> = emptyList()
-        get() = developersContainer.getDevelopers()
-        private set
-
-    var mailingLists: List<MailingList> = emptyList()
-        get() = mailingListsContainer.getMailingLists()
-        private set
-
-    var issueManagement: IssueManagement? = null
-        get() = issueManageMentContainer.getIssueManagement()
-        private set
-
-    var organization: Organization? = null
-        get() = organizationContainer.getOrganization()
-        private set
-
-    var scm: Scm? = null
-        get() = scmContainer.getScm()
-        private set
-
-    fun licenses(action: LicenseContainer.() -> Unit) {
-        licenseContainer.action()
-    }
-
-    fun developers(action: DevelopersContainer.() -> Unit) {
-        developersContainer.action()
-    }
-
-    fun mailingLists(action: MailingListsContainer.() -> Unit) {
-        mailingListsContainer.action()
-    }
-
-    fun issueManagement(action: IssueManagementContainer.() -> Unit) {
-        issueManageMentContainer.action()
-    }
-
-    fun organization(action: OrganizationContainer.() -> Unit) {
-        organizationContainer.action()
-    }
-
-    fun scm(action: ScmContainer.() -> Unit) {
-        scmContainer.action()
-    }
-}
+open class OrganizationDefaultsExtension : AbstractPomMetadataExtension()
 
 /**
  * Parameters for the OrganizationDefaults build service.
@@ -123,82 +56,75 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
             url = parameters.url.orNull
             inceptionYear = parameters.inceptionYear.orNull
 
-            parameters.licenses.orNull?.let { licenses ->
-                licenses(action = {
-                    licenses.forEach { license ->
+            parameters.licenses.orNull?.let { configuredLicenses ->
+                licenses {
+                    configuredLicenses.forEach { configured ->
                         license {
-                            name = license.name
-                            url = license.url
-                            distribution = license.distribution
-                            comments = license.comments
+                            name = configured.name
+                            url = configured.url
+                            distribution = configured.distribution
+                            comments = configured.comments
                         }
                     }
-                })
+                }
             }
 
-            parameters.developers.orNull?.let { devs ->
-                developers(action = {
-                    devs.forEach { dev ->
+            parameters.developers.orNull?.let { configuredDevelopers ->
+                developers {
+                    configuredDevelopers.forEach { configured ->
                         developer {
-                            id = dev.id
-                            name = dev.name
-                            email = dev.email
-                            url = dev.url
-                            organization = dev.organization
-                            organizationUrl = dev.organizationUrl
-                            timezone = dev.timezone
+                            id = configured.id
+                            name = configured.name
+                            email = configured.email
+                            url = configured.url
+                            organization = configured.organization
+                            organizationUrl = configured.organizationUrl
+                            timezone = configured.timezone
                         }
                     }
-                })
+                }
             }
 
-            parameters.mailingLists.orNull?.let { lists ->
-                mailingLists(action = {
-                    lists.forEach { list ->
+            parameters.mailingLists.orNull?.let { configuredMailingLists ->
+                mailingLists {
+                    configuredMailingLists.forEach { configured ->
                         mailingList {
-                            name = list.name
-                            subscribe = list.subscribe
-                            unsubscribe = list.unsubscribe
-                            post = list.post
-                            archive = list.archive
+                            name = configured.name
+                            subscribe = configured.subscribe
+                            unsubscribe = configured.unsubscribe
+                            post = configured.post
+                            archive = configured.archive
                         }
                     }
-                })
+                }
             }
 
-            parameters.organization.orNull?.let { org ->
-                organization(
-                    action = {
-                        organization {
-                            name = org.name
-                            url = org.url
-                        }
+            parameters.organization.orNull?.let { configured ->
+                organization {
+                    organization {
+                        name = configured.name
+                        url = configured.url
                     }
-                )
-
+                }
             }
 
-            parameters.issueManagement.orNull?.let { issue ->
-                issueManagement(
-                    action = {
-                        issueManagement {
-                            system = issue.system
-                            url = issue.url
-                        }
+            parameters.issueManagement.orNull?.let { configured ->
+                issueManagement {
+                    issueManagement {
+                        system = configured.system
+                        url = configured.url
                     }
-                )
+                }
             }
 
-            parameters.scm.orNull?.let { scm ->
-                scm(
-                    action = {
-                        scm {
-                            connection = scm.connection
-                            developerConnection = scm.developerConnection
-                            url = scm.url
-                        }
+            parameters.scm.orNull?.let { configured ->
+                scm {
+                    scm {
+                        connection = configured.connection
+                        developerConnection = configured.developerConnection
+                        url = configured.url
                     }
-                )
+                }
             }
         }
     }
@@ -215,22 +141,24 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
             "rootProjectSetting",
             OrganizationDefaultsService::class.java
         ) {
-            parameters.groupId.set(settings.providers.provider { ext.groupId ?: "" })
-            parameters.artifactId.set(settings.providers.provider { ext.artifactId ?: "" })
-            parameters.version.set(settings.providers.provider { ext.version ?: "" })
+            // A `provider {}` lambda that returns null leaves the property unset, which keeps
+            // "never configured" distinguishable from "configured to an empty string".
+            parameters.groupId.set(settings.providers.provider<String> { ext.groupId })
+            parameters.artifactId.set(settings.providers.provider<String> { ext.artifactId })
+            parameters.version.set(settings.providers.provider<String> { ext.version })
 
-            parameters.name.set(settings.providers.provider { ext.name ?: "" })
-            parameters.description.set(settings.providers.provider { ext.description ?: "" })
-            parameters.url.set(settings.providers.provider { ext.url ?: "" })
-            parameters.inceptionYear.set(settings.providers.provider { ext.inceptionYear ?: "" })
+            parameters.name.set(settings.providers.provider<String> { ext.name })
+            parameters.description.set(settings.providers.provider<String> { ext.description })
+            parameters.url.set(settings.providers.provider<String> { ext.url })
+            parameters.inceptionYear.set(settings.providers.provider<String> { ext.inceptionYear })
 
-            parameters.licenses.set(settings.providers.provider { ext.licenses })
-            parameters.developers.set(settings.providers.provider { ext.developers })
-            parameters.mailingLists.set(settings.providers.provider { ext.mailingLists })
+            parameters.licenses.set(settings.providers.provider<List<License>> { ext.licenses })
+            parameters.developers.set(settings.providers.provider<List<Developer>> { ext.developers })
+            parameters.mailingLists.set(settings.providers.provider<List<MailingList>> { ext.mailingLists })
 
-            parameters.organization.set(settings.providers.provider { ext.organization ?: Organization() })
-            parameters.issueManagement.set(settings.providers.provider { ext.issueManagement ?: IssueManagement() })
-            parameters.scm.set(settings.providers.provider { ext.scm ?: Scm() })
+            parameters.organization.set(settings.providers.provider<Organization> { ext.organization })
+            parameters.issueManagement.set(settings.providers.provider<IssueManagement> { ext.issueManagement })
+            parameters.scm.set(settings.providers.provider<Scm> { ext.scm })
         }
     }
 }

@@ -1,0 +1,27 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 140
+# ktlint 1.x defaults to the `ktlint_official` style, which layers on opinionated
+# formatting rules (forced signature wrapping, trailing commas) that this codebase does not
+# follow. Pin the style so `ktlintCheck` is deterministic across machines and CI.
+ktlint_code_style = intellij_idea
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# gradlew.bat is a Windows batch file and must keep CRLF; the [*] rule above would break it.
+[*.bat]
+end_of_line = crlf
+
+[*.md]
+trim_trailing_whitespace = false

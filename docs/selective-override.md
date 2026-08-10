@@ -37,7 +37,7 @@ rootProjectPom {
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.6"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
 }
 
 projectPom {
@@ -61,6 +61,23 @@ The `merge()` method in the `OrganizationDefaults` class follows these rules:
 1. Values explicitly set in the submodule override the defaults 
 2. Unset values inherit from the root project 
 3. List-type fields (licenses, developers, etc.) fully replace the parent list when overridden
+4. **Block-type fields (`scm`, `organization`, `issueManagement`) also replace wholesale, not
+   field by field.** A submodule that declares any part of a block declares all of it.
+
+> [!WARNING]
+> Rule 4 is easy to trip over now that `checkProjectArtifact` requires `scm.url`. This submodule
+> does **not** inherit the root's `scm.url` — it overrides the whole `scm` block and ends up
+> without one:
+>
+> ```kotlin
+> projectPom {
+>     scm {
+>         connection = "scm:git:git@github.com:YongGoose/child.git"
+>     }
+> }
+> ```
+>
+> Repeat the fields you still need, or leave the block out entirely to inherit it whole.
 
 ```kotlin
 fun merge(override: OrganizationDefaults?): OrganizationDefaults {

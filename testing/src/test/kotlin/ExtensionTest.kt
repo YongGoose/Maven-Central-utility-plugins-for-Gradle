@@ -5,6 +5,22 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
+/**
+ * ⚠️ This test covers a path nothing consumes.
+ *
+ * `OrganizationDefaultsSettingsPlugin` stores what `rootProjectSetting { }` configures into the
+ * `OrganizationDefaultsService` build service, but `OrganizationDefaultsProjectPlugin` never
+ * reads that service — it only looks at the root project's `rootProjectPom` extension. So
+ * metadata configured in `settings.gradle.kts` never reaches `mergedDefaults`, the generated POM,
+ * or `checkProjectArtifact`.
+ *
+ * The test passes anyway because it pulls the service out of `gradle.sharedServices` by hand and
+ * asserts the round-trip, i.e. it verifies storage rather than any user-visible behaviour. Read
+ * it as a characterisation test of the current wiring, not as evidence the settings plugin works.
+ *
+ * Tracked in https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/41 (C2):
+ * the settings plugin should either be wired into the merge chain or removed.
+ */
 class ExtensionTest {
 
     @TempDir
@@ -13,28 +29,28 @@ class ExtensionTest {
     @Test
     fun `plugin propagates defaults from root to sub-module`() {
         projectDir.resolve("settings.gradle.kts").toFile().writeText(
-            """  
+            """
             pluginManagement {
                 repositories {
                     mavenLocal()
                     gradlePluginPortal()
                 }
             }
-            
+
             plugins {
                 id("io.github.yonggoose.maven.central.utility.plugin.setting")
             }
-            
+
             rootProjectSetting {
                 groupId = "io.github.yonggoose"
                 artifactId = "organization-defaults"
                 version = "1.0.0"
-                
+
                 name = "Test Organization"
                 description = "Organization defaults plugin test"
                 url = "https://example.org"
                 inceptionYear = "2023"
-                
+
                 licenses {
                     license {
                         name = "MIT License"
@@ -49,12 +65,12 @@ class ExtensionTest {
                         comments = "Apache License for open source projects"
                     }
                 }
-                
+
                 organization {
                     name = "YongGoose"
                     url = "https://github.com/YongGoose"
                 }
-                
+
                 developers {
                     developer {
                         id = "dev1"
@@ -69,7 +85,7 @@ class ExtensionTest {
                         timezone = "UTC"
                     }
                 }
-                
+
                 mailingLists {
                     mailingList {
                         name = "Developers"
@@ -79,12 +95,12 @@ class ExtensionTest {
                         archive = "https://example.org/archive"
                     }
                 }
-                
+
                 issueManagement {
                     system = "GitHub"
                     url = "https://github.com/YongGoose/organization-defaults/issues"
                 }
-                
+
                 scm {
                     url = "https://github.com/YongGoose/organization-defaults"
                     connection = "scm:git:git@github.com:YongGoose/organization-defaults.git"
@@ -97,10 +113,10 @@ class ExtensionTest {
 
         val subDir = projectDir.resolve("sub").toFile().apply { mkdirs() }
         subDir.resolve("build.gradle.kts").writeText(
-            """    
+            """
             import io.github.yonggoose.organizationdefaults.OrganizationDefaultsExtension
             import io.github.yonggoose.organizationdefaults.OrganizationDefaultsService
-            
+
             tasks.register("verifyExtension") {
                 doLast {
                     val service = gradle.sharedServices
@@ -109,18 +125,18 @@ class ExtensionTest {
                         .get()
                         .service
                         .get() as OrganizationDefaultsService
-                    
+
                     val pom = service.getDefaults()
 
                     check(pom.groupId == "io.github.yonggoose")
                     check(pom.artifactId == "organization-defaults")
                     check(pom.version == "1.0.0")
-                    
+
                     check(pom.name == "Test Organization")
                     check(pom.description == "Organization defaults plugin test")
                     check(pom.url == "https://example.org")
                     check(pom.inceptionYear == "2023")
-                    
+
                     check(pom.licenses.size == 2)
                     check(pom.licenses[0].name == "MIT License")
                     check(pom.licenses[0].url == "https://opensource.org/license/mit/")
@@ -133,7 +149,7 @@ class ExtensionTest {
 
                     check(pom.organization?.name == "YongGoose")
                     check(pom.organization?.url == "https://github.com/YongGoose")
-                    
+
                     check(pom.developers.size == 2)
                     check(pom.developers[0].id == "dev1")
                     check(pom.developers[0].name == "Developer1")
@@ -157,7 +173,7 @@ class ExtensionTest {
                     check(pom.scm?.developerConnection == "scm:git:git@github.com:YongGoose/organization-defaults.git")
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         )
 
         val result = GradleRunner.create()

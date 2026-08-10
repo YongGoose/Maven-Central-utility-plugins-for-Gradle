@@ -1,82 +1,16 @@
 package io.github.yonggoose.organizationdefaults
 
-import io.github.yonggoose.organizationdefaults.container.DevelopersContainer
-import io.github.yonggoose.organizationdefaults.container.IssueManagementContainer
-import io.github.yonggoose.organizationdefaults.container.LicenseContainer
-import io.github.yonggoose.organizationdefaults.container.MailingListsContainer
-import io.github.yonggoose.organizationdefaults.container.OrganizationContainer
-import io.github.yonggoose.organizationdefaults.container.ScmContainer
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 /**
  * Extension for specifying default POM metadata for Gradle projects.
+ *
+ * Registered twice by [OrganizationDefaultsProjectPlugin]: as `rootProjectPom` on the root
+ * project (the organization-wide defaults) and as `projectPom` on every project (the per-module
+ * overrides). The DSL itself lives in [AbstractPomMetadataExtension].
  */
-open class PomDefaultsExtension {
-    var groupId: String? = null
-    var artifactId: String? = null
-    var version: String? = null
-
-    var name: String? = null
-    var description: String? = null
-    var url: String? = null
-    var inceptionYear: String? = null
-
-    private val licenseContainer = LicenseContainer()
-    private val developersContainer = DevelopersContainer()
-    private val mailingListsContainer = MailingListsContainer()
-    private val issueManagementContainer = IssueManagementContainer()
-    private val organizationContainer = OrganizationContainer()
-    private val scmContainer = ScmContainer()
-
-    var licenses: List<License> = emptyList()
-        get() = licenseContainer.getLicenses()
-        private set
-
-    var developers: List<Developer> = emptyList()
-        get() = developersContainer.getDevelopers()
-        private set
-
-    var mailingLists: List<MailingList> = emptyList()
-        get() = mailingListsContainer.getMailingLists()
-        private set
-
-    var issueManagement: IssueManagement? = null
-        get() = issueManagementContainer.getIssueManagement()
-        private set
-
-    var organization: Organization? = null
-        get() = organizationContainer.getOrganization()
-        private set
-
-    var scm: Scm? = null
-        get() = scmContainer.getScm()
-        private set
-
-    fun licenses(action: LicenseContainer.() -> Unit) {
-        licenseContainer.action()
-    }
-
-    fun developers(action: DevelopersContainer.() -> Unit) {
-        developersContainer.action()
-    }
-
-    fun mailingLists(action: MailingListsContainer.() -> Unit) {
-        mailingListsContainer.action()
-    }
-
-    fun issueManagement(action: IssueManagementContainer.() -> Unit) {
-        issueManagementContainer.action()
-    }
-
-    fun organization(action: OrganizationContainer.() -> Unit) {
-        organizationContainer.action()
-    }
-
-    fun scm(action: ScmContainer.() -> Unit) {
-        scmContainer.action()
-    }
-}
+open class PomDefaultsExtension : AbstractPomMetadataExtension()
 
 /**
  * Gradle plugin for providing and merging organization-wide default POM metadata into projects.
@@ -90,57 +24,44 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
         }
 
         project.afterEvaluate {
-            val organizationDefaultExtension = project.rootProject.extensions.findByName("rootProjectPom") as? PomDefaultsExtension
-                ?: PomDefaultsExtension()
+            val rootExtension = project.rootProject.extensions.findByName(ROOT_EXTENSION_NAME)
+            if (rootExtension != null && rootExtension !is PomDefaultsExtension) {
+                // Distinct from "the plugin was never applied": it was, and left an extension this
+                // build cannot read, which in practice means two versions of it on the build
+                // classpath under different classloaders. Silently treating it as absent would
+                // drop the organization defaults and surface as "Missing name / description / …".
+                throw IllegalStateException(
+                    "The root project's '$ROOT_EXTENSION_NAME' extension is a " +
+                        "${rootExtension.javaClass.name}, not a ${PomDefaultsExtension::class.java.name}. " +
+                        "Check for more than one version of " +
+                        "'io.github.yonggoose.maven.central.utility.plugin.project' on the build classpath."
+                )
+            }
 
-            val orgDefaults = OrganizationDefaults(
-                groupId = organizationDefaultExtension.groupId,
-                artifactId = organizationDefaultExtension.artifactId,
-                version = organizationDefaultExtension.version,
+            val rootPomExt = rootExtension as? PomDefaultsExtension
+            if (rootPomExt == null) {
+                project.logger.warn(
+                    "No '$ROOT_EXTENSION_NAME' extension found on the root project, so only the " +
+                        "'projectPom' of '${project.path}' is used. Apply " +
+                        "'io.github.yonggoose.maven.central.utility.plugin.project' to the root project " +
+                        "to share organization-wide POM defaults."
+                )
+            }
 
-                name = organizationDefaultExtension.name,
-                description = organizationDefaultExtension.description,
-                url = organizationDefaultExtension.url,
-                inceptionYear = organizationDefaultExtension.inceptionYear,
+            val orgDefaults = rootPomExt?.toOrganizationDefaults() ?: OrganizationDefaults()
+            val merged = orgDefaults.merge(projectPomExt.toOrganizationDefaults())
 
-                licenses = organizationDefaultExtension.licenses,
-
-                organization = organizationDefaultExtension.organization,
-
-                developers = organizationDefaultExtension.developers,
-
-                issueManagement = organizationDefaultExtension.issueManagement,
-
-                mailingLists = organizationDefaultExtension.mailingLists,
-
-                scm = organizationDefaultExtension.scm
-            )
-
-            val projectPom = OrganizationDefaults(
-                groupId = projectPomExt.groupId,
-                artifactId = projectPomExt.artifactId,
-                version = projectPomExt.version,
-
-                name = projectPomExt.name,
-                description = projectPomExt.description,
-                url = projectPomExt.url,
-                inceptionYear = projectPomExt.inceptionYear,
-
-                licenses = projectPomExt.licenses,
-
-                developers = projectPomExt.developers,
-
-                mailingLists = projectPomExt.mailingLists,
-
-                organization = projectPomExt.organization,
-
-                issueManagement = projectPomExt.issueManagement,
-
-                scm = projectPomExt.scm
-            )
-
-            val merged = orgDefaults.merge(projectPom)
-            project.extensions.extraProperties.set("mergedDefaults", merged)
+            project.extensions.extraProperties.set(MERGED_DEFAULTS_PROPERTY, merged)
         }
+    }
+
+    companion object {
+        /**
+         * Name of the `ExtraProperties` entry holding the merged [OrganizationDefaults]
+         * for a given project.
+         */
+        const val MERGED_DEFAULTS_PROPERTY: String = "mergedDefaults"
+
+        private const val ROOT_EXTENSION_NAME = "rootProjectPom"
     }
 }

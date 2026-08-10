@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the Maven Central utility plugins
 
 1. Fork and clone the repository
 2. Ensure you have JDK 17 or later installed
-3. Ensure you have Gradle 7.0+ installed
+3. Use the bundled Gradle wrapper (`./gradlew`); the project targets Gradle 8.0+
 
 ## Building and Testing
 

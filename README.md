@@ -32,21 +32,65 @@ Not yet published to Maven Central. (Will be available soon.)
 
 ---
 ## ⚡ Quick Start
-Minimal setup in `build.gradle.kts`:
+Setup in `build.gradle.kts`. The metadata below is exactly the set Maven Central requires, which is
+also what `checkProjectArtifact` looks for:
 ```kotlin
+plugins {
+    `maven-publish`
+    signing
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
+}
+
 rootProjectPom {
     groupId = "io.github.yonggoose"
     artifactId = "my-project"
     version = "1.0.0"
+
     name = "My Project"
     description = "A sample project"
+    url = "https://github.com/YongGoose/my-project"
+
+    licenses {
+        license {
+            name = "Apache-2.0"
+            url = "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+    }
+
+    developers {
+        developer {
+            id = "yonggoose"
+            name = "Yongjun Hong"
+        }
+    }
+
+    scm {
+        url = "https://github.com/YongGoose/my-project"
+        connection = "scm:git:git@github.com:YongGoose/my-project.git"
+        developerConnection = "scm:git:git@github.com:YongGoose/my-project.git"
+    }
 }
 ```
 
 Validate before publishing:
-```kotlin
+```bash
 ./gradlew checkProjectArtifact
 ```
+
+> [!IMPORTANT]
+> This Quick Start declares no publication and no `sign(…)`, so `checkProjectArtifact` validates
+> the **metadata only** and reports `PGP signature verification was SKIPPED`. A green run here does
+> not mean the artifacts are signed. Two more things are needed before publishing for real:
+>
+> 1. a `publishing { publications { … } }` block with `signing { sign(publishing.publications) }`;
+> 2. wiring `mergedDefaults` into `MavenPublication.pom` — this plugin does not do it for you, see
+>    the [Integration](#-integration) section below.
+
+The task depends on the `Sign` tasks, so on a machine with no usable signing key Gradle's signing
+plugin fails before any report is produced. See
+[artifact validation](docs/artifact-validation.md#current-limitations) for how to get a
+metadata-only run there — the answer depends on whether a signatory is configured.
 
 ## 🔗 Integration
 
@@ -61,7 +105,7 @@ import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 
 plugins {
     id("java")
-    id("io.github.yonggoose.maven.central.utility.plugin..project") version "0.1.6"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
     id("com.vanniktech.maven.publish") version "0.34.0"
     id("maven-publish")
 }

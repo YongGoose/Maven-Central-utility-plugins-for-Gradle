@@ -10,6 +10,11 @@ dependencies {
     implementation(gradleKotlinDsl())
     implementation("org.bouncycastle:bcpg-jdk18on:1.77")
     implementation("org.bouncycastle:bcprov-jdk18on:1.77")
+
+    // Unit tests for the validation rules; the TestKit integration tests live in :testing.
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 kotlin {
