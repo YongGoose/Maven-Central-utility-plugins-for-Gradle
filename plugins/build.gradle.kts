@@ -2,7 +2,7 @@ plugins {
     kotlin("jvm")
     id("java-gradle-plugin")
     `kotlin-dsl`
-    id("com.gradle.plugin-publish") version "1.2.1"
+    id("com.gradle.plugin-publish") version "2.1.1"
 }
 
 dependencies {
