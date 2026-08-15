@@ -74,6 +74,15 @@ abstract class AbstractPomMetadataExtension {
     }
 
     /**
+     * Resolves simple `${...}` placeholders in a string against known extension properties.
+     */
+    private fun resolve(template: String): String {
+        return template.replace("\${artifactId}", artifactId ?: template)
+            .replace("\${groupId}", groupId ?: template)
+            .replace("\${version}", version ?: template)
+    }
+
+    /**
      * Snapshots the currently configured metadata into an immutable [OrganizationDefaults].
      */
     fun toOrganizationDefaults(): OrganizationDefaults =
@@ -83,13 +92,18 @@ abstract class AbstractPomMetadataExtension {
             version = version,
             name = name,
             description = description,
-            url = url,
             inceptionYear = inceptionYear,
             licenses = licenses,
             organization = organization,
             developers = developers,
             issueManagement = issueManagement,
             mailingLists = mailingLists,
-            scm = scm
+            scm = scm?.let { rawScm ->
+                Scm(
+                    url = resolve(rawScm.url),
+                    connection = rawScm.connection?.let(::resolve),
+                    developerConnection = rawScm.developerConnection?.let(::resolve)
+                )
+            }
         )
 }
