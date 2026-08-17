@@ -3,6 +3,7 @@ import org.bouncycastle.bcpg.HashAlgorithmTags
 import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.PGPPublicKey
+import org.bouncycastle.openpgp.PGPPublicKeyRing
 import org.bouncycastle.openpgp.PGPSecretKey
 import org.bouncycastle.openpgp.PGPSignature
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentSignerBuilder
@@ -35,8 +36,11 @@ class ArtifactCheckSignedTest {
 
     private val keyPassword = "test-password"
 
-    /** An armored, password-protected secret key ring suitable for `useInMemoryPgpKeys`. */
-    private fun generateArmoredSecretKey(): String {
+    /** One throwaway key, in the two armored forms a build needs: one to sign with, one to check against. */
+    private data class TestKey(val secret: String, val public: String)
+
+    /** An armored, password-protected secret key ring suitable for `useInMemoryPgpKeys`, plus its public half. */
+    private fun generateKey(): TestKey {
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(BouncyCastleProvider())
         }
@@ -59,16 +63,29 @@ class ArtifactCheckSignedTest {
                 .build(keyPassword.toCharArray())
         )
 
-        val armored = ByteArrayOutputStream()
-        ArmoredOutputStream(armored).use { secretKey.encode(it) }
-        return armored.toString(Charsets.UTF_8.name())
+        val armoredSecret = ByteArrayOutputStream()
+        ArmoredOutputStream(armoredSecret).use { secretKey.encode(it) }
+
+        val armoredPublic = ByteArrayOutputStream()
+        ArmoredOutputStream(armoredPublic).use { PGPPublicKeyRing(listOf(secretKey.publicKey)).encode(it) }
+
+        return TestKey(
+            secret = armoredSecret.toString(Charsets.UTF_8.name()),
+            public = armoredPublic.toString(Charsets.UTF_8.name())
+        )
     }
 
-    private fun writeSignedProject() {
+    /**
+     * @param artifactCheckBlock configuration to splice in, so a test can point the check at a
+     *   public key -- or at the wrong one.
+     */
+    private fun writeSignedProject(artifactCheckBlock: String = "") {
         projectDir.resolve("settings.gradle.kts").toFile()
             .writeText(PomFixture.singleProjectSettings("signed"))
 
-        projectDir.resolve("secring.asc").toFile().writeText(generateArmoredSecretKey())
+        val key = generateKey()
+        projectDir.resolve("secring.asc").toFile().writeText(key.secret)
+        projectDir.resolve("pubring.asc").toFile().writeText(key.public)
 
         projectDir.resolve("src/main/java").toFile().mkdirs()
         projectDir.resolve("src/main/java/Library.java").toFile().writeText(
@@ -99,6 +116,8 @@ class ArtifactCheckSignedTest {
                 useInMemoryPgpKeys(file("secring.asc").readText(), "$keyPassword")
                 sign(publishing.publications)
             }
+
+            $artifactCheckBlock
             """.trimIndent()
         )
     }
@@ -183,6 +202,68 @@ class ArtifactCheckSignedTest {
         Assertions.assertFalse(
             result.output.contains("verified successfully"),
             "leftover .asc files were reported as a successful verification"
+        )
+    }
+
+    @Test
+    fun `signatures are verified against the configured public key`() {
+        writeSignedProject(
+            """
+            artifactCheck {
+                publicKeyRing = file("pubring.asc")
+            }
+            """.trimIndent()
+        )
+
+        val result = GradleRunner.create()
+            .withProjectDir(projectDir.toFile())
+            .withArguments("checkProjectArtifact", "--info", "--stacktrace")
+            .withPluginClasspath()
+            .forwardOutput()
+            .build()
+
+        Assertions.assertEquals(TaskOutcome.SUCCESS, result.task(":checkProjectArtifact")?.outcome)
+
+        // "verified against key" is only ever printed by the branch that ran a real verification;
+        // the structure-only branch says "carries key ID".
+        Assertions.assertTrue(
+            result.output.contains("verified against key"),
+            "the signatures were not checked against the configured key:\n${result.output}"
+        )
+        Assertions.assertFalse(
+            result.output.contains("checked for structure only"),
+            "a public key was configured, so the structural-only warning must not appear"
+        )
+    }
+
+    /**
+     * The end-to-end shape of the case `PgpSignatureVerifierTest` covers directly: a build whose
+     * signatures were made by a key the configured ring does not hold. Before public keys were
+     * read at all this run reported success.
+     */
+    @Test
+    fun `a signature made by a key outside the configured ring fails the build`() {
+        writeSignedProject(
+            """
+            artifactCheck {
+                publicKeyRing = file("someone-elses-pubring.asc")
+            }
+            """.trimIndent()
+        )
+        // A valid key ring, just not the one that signed anything here.
+        projectDir.resolve("someone-elses-pubring.asc").toFile().writeText(generateKey().public)
+
+        val result = GradleRunner.create()
+            .withProjectDir(projectDir.toFile())
+            .withArguments("checkProjectArtifact", "--stacktrace")
+            .withPluginClasspath()
+            .forwardOutput()
+            .buildAndFail()
+
+        Assertions.assertEquals(TaskOutcome.FAILED, result.task(":checkProjectArtifact")?.outcome)
+        Assertions.assertTrue(
+            result.output.contains("which is not in"),
+            "expected the report to name the unknown signing key:\n${result.output}"
         )
     }
 

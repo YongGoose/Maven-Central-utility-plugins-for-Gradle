@@ -25,6 +25,8 @@ import java.util.IdentityHashMap
 class ArtifactCheckPluginForProject : Plugin<Project> {
 
     override fun apply(project: Project) {
+        project.extensions.create(EXTENSION_NAME, ArtifactCheckExtension::class.java)
+
         project.tasks.register(TASK_NAME) {
             group = LifecycleBasePlugin.VERIFICATION_GROUP
             description =
@@ -208,7 +210,20 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         }
         project.logger.info("Found ${signatures.size} signature(s) for ${signatures.keys.map { it.name }.sorted()}")
 
-        val context = SignatureCheckContext(project, signatures, signing.isRequired, errors)
+        val publicKeys = resolvePublicKeys(project)
+        if (publicKeys == null) {
+            // Said out loud on every run that checks a signature. The verdict below reads
+            // "verified successfully" either way, and without this line there is nothing to tell
+            // a reader that it means "parses as a signature" rather than "matches this file".
+            project.logger.warn(
+                "No public key is configured, so signatures are checked for structure only — this " +
+                    "run does not confirm they were made over these files. Set " +
+                    "'$EXTENSION_NAME { publicKeyRing = ... }' or '$EXTENSION_NAME " +
+                    "{ inMemoryPublicKey = ... }' to verify them."
+            )
+        }
+
+        val context = SignatureCheckContext(project, signatures, signing.isRequired, errors, publicKeys)
         publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
             validateMavenPublicationSignatures(context, publication)
         }
@@ -242,7 +257,8 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         val project: Project,
         val signatures: Map<File, File>,
         val signingRequired: Boolean,
-        val errors: MutableList<String>
+        val errors: MutableList<String>,
+        val publicKeys: PgpPublicKeys?
     ) {
         /** Files this check looked at, whatever the verdict. */
         var inspected: Int = 0
@@ -395,7 +411,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             return
         }
 
-        val result = PgpSignatureVerifier.verify(file, signatureFile)
+        val result = PgpSignatureVerifier.verify(file, signatureFile, context.publicKeys)
         if (result.isOk) {
             context.project.logger.info("PGP signature verified for $kind ${file.name}. ${result.detail}")
             context.verified++
@@ -442,6 +458,42 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             ?.destination
             ?.takeIf { it.exists() }
 
+    /**
+     * The public keys this build verifies against, or `null` when none were configured.
+     *
+     * Both failure modes here throw rather than degrading. A build that configured a key ring and
+     * got an unreadable one, or that set both properties and cannot be told which it meant, would
+     * otherwise silently fall back to the structure-only check while its output still said
+     * "verified successfully" — configuring verification and getting none is a worse outcome than
+     * a build that stops and says so.
+     */
+    private fun resolvePublicKeys(project: Project): PgpPublicKeys? {
+        val extension = project.extensions.findByType(ArtifactCheckExtension::class.java) ?: return null
+
+        val inMemory = extension.inMemoryPublicKey.orNull?.takeIf { it.isNotBlank() }
+        val keyRingFile = extension.publicKeyRing.orNull?.asFile
+
+        if (inMemory != null && keyRingFile != null) {
+            throw IllegalArgumentException(
+                "Both '$EXTENSION_NAME.inMemoryPublicKey' and '$EXTENSION_NAME.publicKeyRing' are " +
+                    "set. Configure one, so it is unambiguous which key this build verifies against."
+            )
+        }
+
+        if (inMemory != null) {
+            return PgpPublicKeys.load(inMemory.toByteArray(), "'$EXTENSION_NAME.inMemoryPublicKey'")
+        }
+        if (keyRingFile != null) {
+            if (!keyRingFile.exists()) {
+                throw IllegalArgumentException(
+                    "'$EXTENSION_NAME.publicKeyRing' points at '${keyRingFile.path}', which does not exist."
+                )
+            }
+            return PgpPublicKeys.load(keyRingFile.readBytes(), "'${keyRingFile.path}'")
+        }
+        return null
+    }
+
     private fun pomTaskNameFor(publication: MavenPublication): String =
         "$GENERATE_POM_TASK_PREFIX${capitalize(publication.name)}Publication"
 
@@ -449,6 +501,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
     companion object {
         private const val TASK_NAME = "checkProjectArtifact"
+        private const val EXTENSION_NAME = "artifactCheck"
         private const val GENERATE_POM_TASK_PREFIX = "generatePomFileFor"
     }
 }

@@ -5,16 +5,19 @@ import org.bouncycastle.bcpg.BCPGOutputStream
 import org.bouncycastle.bcpg.HashAlgorithmTags
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.PGPPublicKey
+import org.bouncycastle.openpgp.PGPPublicKeyRing
 import org.bouncycastle.openpgp.PGPSignature
 import org.bouncycastle.openpgp.PGPSignatureGenerator
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentSignerBuilder
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyPair
 import org.junit.jupiter.api.io.TempDir
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.KeyPairGenerator
 import java.security.Security
 import java.util.Date
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -32,15 +35,29 @@ class PgpSignatureVerifierTest {
     private fun artifact(name: String = "my-library-1.0.0.jar", content: String = "artifact bytes"): File =
         File(tempDir, name).apply { writeText(content) }
 
-    /** Produces a genuine armored detached signature over [source]. */
-    private fun signatureFor(source: File): File {
+    /** A throwaway RSA key pair usable for both signing and verifying. */
+    private fun newKeyPair(): JcaPGPKeyPair {
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(BouncyCastleProvider())
         }
 
         val generator = KeyPairGenerator.getInstance("RSA", BouncyCastleProvider.PROVIDER_NAME)
         generator.initialize(2048)
-        val keyPair = JcaPGPKeyPair(PGPPublicKey.RSA_GENERAL, generator.generateKeyPair(), Date(0))
+        return JcaPGPKeyPair(PGPPublicKey.RSA_GENERAL, generator.generateKeyPair(), Date(0))
+    }
+
+    /** [keyPair]'s public half, as the armored export a build would configure. */
+    private fun publicKeysOf(keyPair: JcaPGPKeyPair, origin: String = "test key ring"): PgpPublicKeys {
+        val armored = ByteArrayOutputStream()
+        ArmoredOutputStream(armored).use { PGPPublicKeyRing(listOf(keyPair.publicKey)).encode(it) }
+        return PgpPublicKeys.load(armored.toByteArray(), origin)
+    }
+
+    /** Produces a genuine armored detached signature over [source]. */
+    private fun signatureFor(source: File, keyPair: JcaPGPKeyPair = newKeyPair()): File {
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.addProvider(BouncyCastleProvider())
+        }
 
         val signatureGenerator = PGPSignatureGenerator(
             JcaPGPContentSignerBuilder(keyPair.publicKey.algorithm, HashAlgorithmTags.SHA256)
@@ -151,6 +168,57 @@ class PgpSignatureVerifierTest {
         val missingSignature = PgpSignatureVerifier.verify(jar, File(tempDir, "absent.jar.asc"))
         assertFalse(missingSignature.isOk)
         assertTrue(missingSignature.detail.contains("Signature file does not exist"), missingSignature.detail)
+    }
+
+    @Test
+    fun `a signature verifies against the key that made it`() {
+        val keyPair = newKeyPair()
+        val jar = artifact()
+
+        val result = PgpSignatureVerifier.verify(jar, signatureFor(jar, keyPair), publicKeysOf(keyPair))
+
+        assertTrue(result.isOk, "expected the signature to verify but got: ${result.detail}")
+        assertTrue(result.detail.contains("verified against key"), result.detail)
+    }
+
+    /**
+     * The case the structure-only check could never catch, and the reason #22 existed: a
+     * well-formed signature that no longer covers the file beside it.
+     */
+    @Test
+    fun `a signature over content that has since changed is rejected`() {
+        val keyPair = newKeyPair()
+        val jar = artifact()
+        val signature = signatureFor(jar, keyPair)
+
+        jar.writeText("artifact bytes, rebuilt")
+
+        val withoutKeys = PgpSignatureVerifier.verify(jar, signature)
+        assertTrue(withoutKeys.isOk, "the structural check is expected to still pass here: ${withoutKeys.detail}")
+
+        val withKeys = PgpSignatureVerifier.verify(jar, signature, publicKeysOf(keyPair))
+        assertFalse(withKeys.isOk, "a signature over different content must not verify")
+        assertTrue(withKeys.detail.contains("does not match its contents"), withKeys.detail)
+    }
+
+    @Test
+    fun `a signature made by a key that is not in the ring is rejected`() {
+        val jar = artifact()
+        val signature = signatureFor(jar, newKeyPair())
+
+        val result = PgpSignatureVerifier.verify(jar, signature, publicKeysOf(newKeyPair(), "'pubring.asc'"))
+
+        assertFalse(result.isOk, "an unknown signing key must not verify")
+        assertTrue(result.detail.contains("not in 'pubring.asc'"), result.detail)
+    }
+
+    @Test
+    fun `an unreadable key ring is rejected instead of falling back to the structural check`() {
+        val failure = assertFailsWith<IllegalArgumentException> {
+            PgpPublicKeys.load("this is not a key ring".toByteArray(), "'pubring.asc'")
+        }
+
+        assertTrue(failure.message!!.contains("Could not read a PGP public key ring"), failure.message!!)
     }
 
     // The signature-to-file pairing used to be derived here from file names and paths, and got
