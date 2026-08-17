@@ -94,21 +94,19 @@ Each file is paired with its signature using the mapping **Gradle itself records
   signature, or one publication's `pom-default.xml.asc` standing in for another's — are impossible
   by construction rather than guarded against.
 
-Only signatures **this build will produce** count. A `Sign` task that is not going to run —
-disabled, excluded with `-x signMavenPublication`, or skipped by the rule Gradle's own signing
-plugin applies (`isRequired || signatory != null`) — contributes nothing, even when an `.asc` file
-from an earlier run is still sitting in `build/`. Otherwise a dirty `build/` directory would
-report `PGP signatures verified successfully` for artifacts that were just rebuilt underneath a
-stale signature, which is the fail-open reporting this task exists to remove. The generated POM
-and module metadata are decided the same way, by whether their producing task is part of the
-build.
+Only signatures **this build produced** count. A `Sign` task that did not run — skipped by any
+`onlyIf`, disabled, or excluded with `-x signMavenPublication` — contributes nothing, even when an
+`.asc` file from an earlier run is still sitting in `build/`. Otherwise a dirty `build/` directory
+would report `PGP signatures verified successfully` for artifacts that were just rebuilt
+underneath a stale signature, which is the fail-open reporting this task exists to remove. The
+generated POM and module metadata are decided the same way, by their producing task's outcome —
+including the `onlyIf` Gradle itself puts on `GenerateModuleMetadata` for publications that carry
+no component.
 
-That question is answered from the task graph, before anything executes, which is what lets the
-task run under the configuration cache. Two narrow cases fall outside it: a **custom `onlyIf`**
-added to a `Sign` task by the build, and `-x` given as a **camel-case abbreviation**
-(`-x sMP`). In both the task is treated as though it will sign, so an absent signature is
-reported as absent rather than passed over — the failure direction is towards checking, never
-towards a silent pass.
+Outcomes reach the task through a build event listener rather than by reading another task's
+`state`, which is what lets it run under the configuration cache. Executed, `UP-TO-DATE` and
+`FROM-CACHE` all count as produced; `SKIPPED` and `NO-SOURCE` do not, and an excluded task is
+never reported at all.
 
 The flip side is that **signatures the Gradle `signing` plugin did not create are invisible**. If
 you sign artifacts with an external tool and drop the files into `build/`, `checkProjectArtifact`

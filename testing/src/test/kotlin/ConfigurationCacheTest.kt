@@ -79,5 +79,12 @@ class ConfigurationCacheTest {
             reused.output.contains("Configuration cache entry reused"),
             "the second run did not reuse the entry, so the task is only cacheable on paper:\n${reused.output}"
         )
+        // Running is not the same as reporting correctly. Nothing was signed here, so the reused
+        // run has to reach the same verdict as the stored one -- a task that came back from the
+        // cache holding stale state would still pass every assertion above.
+        Assertions.assertTrue(
+            reused.output.contains("PGP signature verification was SKIPPED"),
+            "the run off the configuration cache did not reach the same verdict:\n${reused.output}"
+        )
     }
 }

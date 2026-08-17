@@ -2,7 +2,6 @@ package io.github.yonggoose.organizationdefaults
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.provider.ListProperty
-import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
@@ -11,19 +10,42 @@ import java.io.File
 import java.io.Serializable
 
 /**
+ * A file this build may publish, the signature the `signing` plugin recorded for it, and the task
+ * that has to have run for either to be this build's.
+ *
+ * Paths only, never existence: the artifacts, the POM and the module metadata are all written
+ * during execution, so nothing here can be checked for being on disk at the point it is captured.
+ * Whether the file counts is settled at execution time, from [producedBy].
+ */
+data class SignaturePlan(
+    val signedFile: File,
+    val signatureFile: File,
+    /**
+     * The `Sign` task that produces [signatureFile], or `null` for a signature that reached
+     * `signing.configuration.artifacts` without one. A signature with no task behind it has no
+     * outcome to judge it by and is taken as given, which is what the previous implementation did.
+     */
+    val producedBy: String?
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}
+
+/**
  * One Maven publication's files, as [ArtifactCheckPluginForProject] resolved them at configuration
  * time.
  *
- * Paths only, never existence: the POM, the module metadata and the artifacts are all written
- * during execution, so nothing here can be checked for being on disk until the task runs. A `null`
- * [pomFile] or [moduleMetadataFile] means something stronger — the task that would have produced
- * it is not part of this build, so whatever is at that path belongs to an earlier one.
+ * [pomTaskPath] and [moduleTaskPath] are `null` when the build has no such task at all; when they
+ * are set, the file still only counts if that task produced its output in this build.
  */
 data class PublicationArtifacts(
     val name: String,
     val artifacts: List<File>,
     val pomTaskName: String,
+    val pomTaskPath: String?,
     val pomFile: File?,
+    val moduleTaskPath: String?,
     val moduleMetadataFile: File?
 ) : Serializable {
     companion object {
@@ -38,7 +60,8 @@ data class PublicationArtifacts(
  * holds no reference to `Project`. That is what makes it usable with the configuration cache; the
  * previous `doLast` block read the merged metadata, both extensions, the `Sign` task list and
  * another task's `state` at execution time, and Gradle will not serialize a task action holding a
- * `Project`.
+ * `Project`. The one thing that genuinely needs execution-time knowledge — did the task that
+ * produces this file actually produce it — comes from [ProducedOutputsService].
  *
  * The properties are `@Internal` rather than `@Input`/`@InputFiles` on purpose. This task declares
  * no outputs, so Gradle runs it on every invocation whatever its inputs say; annotating the paths
@@ -72,9 +95,11 @@ abstract class CheckProjectArtifactTask : DefaultTask() {
     @get:Internal
     abstract val publications: ListProperty<PublicationArtifacts>
 
-    /** Signed file (absolute) to the signature over it, as the `signing` plugin itself records it. */
     @get:Internal
-    abstract val signaturesBySignedFile: MapProperty<File, File>
+    abstract val signaturePlans: ListProperty<SignaturePlan>
+
+    @get:Internal
+    abstract val producedOutputs: Property<ProducedOutputsService>
 
     @TaskAction
     fun check() {
@@ -113,6 +138,30 @@ abstract class CheckProjectArtifactTask : DefaultTask() {
     }
 
     /**
+     * The signature for each file, dropping every signature whose `Sign` task produced nothing in
+     * this build.
+     *
+     * The `Signature` objects exist whether or not anything signed, so taking them all would let a
+     * stale `.asc` in a dirty `build/` stand in for a signature this build never produced — what
+     * `-x signMavenPublication`, `setRequired(false)` on a keyless machine, and any `onlyIf` on a
+     * `Sign` task all leave behind.
+     */
+    private fun currentSignatures(): Map<File, File> {
+        val outcomes = producedOutputs.get()
+        return signaturePlans.get()
+            .filter { it.producedBy == null || outcomes.produced(it.producedBy) }
+            .associate { it.signedFile to it.signatureFile }
+    }
+
+    /** [file] if the task at [taskPath] produced it in this build and it is on disk, else `null`. */
+    private fun producedFile(taskPath: String?, file: File?): File? {
+        if (taskPath == null || file == null) {
+            return null
+        }
+        return file.takeIf { producedOutputs.get().produced(taskPath) && it.exists() }
+    }
+
+    /**
      * Reports how much of the signature check ran, so the caller never claims a verification that
      * did not happen.
      *
@@ -140,7 +189,7 @@ abstract class CheckProjectArtifactTask : DefaultTask() {
             return SignatureCheck.SKIPPED
         }
 
-        val signatures = signaturesBySignedFile.get()
+        val signatures = currentSignatures()
         val required = signingRequired.get()
 
         if (signatures.values.none { it.exists() }) {
@@ -187,21 +236,22 @@ abstract class CheckProjectArtifactTask : DefaultTask() {
         }
 
         // Gradle Module Metadata is published and signed alongside the POM, so a missing
-        // module.json signature is rejected at upload just like a missing POM signature. A file
-        // that is on disk without its producing task being in this build is an earlier build's.
-        publication.moduleMetadataFile
-            ?.takeIf { it.exists() }
+        // module.json signature is rejected at upload just like a missing POM signature. Absent
+        // when GenerateModuleMetadata produced nothing -- including its own `onlyIf` for
+        // publications that cannot carry module metadata, which would otherwise leave an earlier
+        // layout's module.json on disk demanding a signature nothing will ever produce.
+        producedFile(publication.moduleTaskPath, publication.moduleMetadataFile)
             ?.let { verifyFileSignature(publication, it, "module metadata", signatures, required, errors, tally) }
 
-        val pomFile = publication.pomFile?.takeIf { it.exists() }
+        val pomFile = producedFile(publication.pomTaskPath, publication.pomFile)
         if (pomFile == null) {
             // Not "run the task first": this task depends on every GenerateMavenPom, so the only
-            // way to get here is a POM task that was disabled or excluded from this build. Telling
-            // the user to run what they just opted out of would send them in a circle.
+            // way to get here is a POM task that was disabled, skipped or excluded from this build.
+            // Telling the user to run what they just opted out of would send them in a circle.
             errors.add(
                 "No POM was generated for publication '${publication.name}', so its signature " +
-                    "could not be verified. '${publication.pomTaskName}' was disabled or " +
-                    "excluded from this build; Maven Central requires a POM for every artifact."
+                    "could not be verified. '${publication.pomTaskName}' did not run in this " +
+                    "build; Maven Central requires a POM for every artifact."
             )
             return
         }
