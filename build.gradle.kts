@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("jvm") version "2.4.10" apply false
-    id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
 /**
@@ -18,6 +18,15 @@ val ktlintSettings = mapOf(
     // switch this one off by name: it dictates exactly how a signature must wrap and how an
     // expression body must follow it, which is a house style this project has not adopted.
     "ktlint_standard_function-signature" to "disabled",
+    // Same story, two more rules the ktlint bundled with the plugin's 14.x line applies here.
+    // `class-signature` collapses a constructor's parameters onto one line until they no longer
+    // fit, which would reflow every `data class` in OrganizationDefaults.kt away from the
+    // one-parameter-per-line form they are written and reviewed in.
+    "ktlint_standard_class-signature" to "disabled",
+    // `function-expression-body` rewrites `fun f(): T { return x }` into `fun f(): T = x`
+    // wherever it fits. A worthwhile shape, but not one to have enforced mechanically on a
+    // function whose block body is about to grow again.
+    "ktlint_standard_function-expression-body" to "disabled",
     // IntelliJ permits trailing commas, and ktlint turns "permitted" into "required".
     // This codebase does not use them.
     "ij_kotlin_allow_trailing_comma" to "false",
