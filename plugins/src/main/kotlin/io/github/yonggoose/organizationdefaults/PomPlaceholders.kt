@@ -56,7 +56,13 @@ internal object PomPlaceholders {
     fun resolve(pom: OrganizationDefaults): OrganizationDefaults {
         val coordinates = coordinatesOf(pom)
         return mapText(pom) { text ->
-            PATTERN.replace(text) { match -> coordinates[match.groupValues[1]] ?: match.value }
+            PATTERN.replace(text) { match ->
+                // `isNotBlank`, not just non-null: a coordinate set to "" would otherwise
+                // substitute to nothing and turn the template into
+                // `https://github.com/YongGoose/` -- a URL that looks fine and is wrong. Left in
+                // place instead, where `unresolved` picks it up.
+                coordinates[match.groupValues[1]]?.takeIf { it.isNotBlank() } ?: match.value
+            }
         }
     }
 
@@ -68,10 +74,22 @@ internal object PomPlaceholders {
      */
     fun unresolved(pom: OrganizationDefaults): List<String> {
         val found = LinkedHashSet<String>()
-        mapText(pom) { text ->
-            if (PATTERN.containsMatchIn(text)) {
+        fun scan(text: String?) {
+            if (text != null && PATTERN.containsMatchIn(text)) {
                 found.add(text)
             }
+        }
+
+        // The coordinates are scanned here even though [mapText] skips them, and *because* it
+        // skips them: nothing substitutes into a coordinate, so `version = "\${version}-RC"`
+        // survives resolution untouched. `validateCoordinates` only rejects a version that is
+        // blank or a snapshot, so without this it would publish as written.
+        scan(pom.groupId)
+        scan(pom.artifactId)
+        scan(pom.version)
+
+        mapText(pom) { text ->
+            scan(text)
             text
         }
         return found.toList()
@@ -82,6 +100,10 @@ internal object PomPlaceholders {
      *
      * One traversal for both callers on purpose. Two would drift, and the way they would drift is
      * a field that gets substituted but never checked — or checked but never substituted.
+     *
+     * Every rebuild goes through `copy`, never a constructor. A constructor call compiles just as
+     * happily after a field is added to one of these data classes, and silently resets it to its
+     * default in every merged POM.
      */
     private fun mapText(
         pom: OrganizationDefaults,
@@ -95,11 +117,18 @@ internal object PomPlaceholders {
             url = map(pom.url),
             inceptionYear = map(pom.inceptionYear),
             licenses = pom.licenses.map {
-                License(map(it.name), map(it.url), map(it.distribution), map(it.comments))
+                it.copy(
+                    name = map(it.name),
+                    url = map(it.url),
+                    distribution = map(it.distribution),
+                    comments = map(it.comments)
+                )
             },
-            organization = pom.organization?.let { Organization(map(it.name), map(it.url)) },
+            organization = pom.organization?.let { org ->
+                org.copy(name = map(org.name), url = map(org.url))
+            },
             developers = pom.developers.map {
-                Developer(
+                it.copy(
                     id = map(it.id),
                     name = map(it.name),
                     email = map(it.email),
@@ -109,9 +138,11 @@ internal object PomPlaceholders {
                     timezone = map(it.timezone)
                 )
             },
-            issueManagement = pom.issueManagement?.let { IssueManagement(map(it.system), map(it.url)) },
+            issueManagement = pom.issueManagement?.let { issues ->
+                issues.copy(system = map(issues.system), url = map(issues.url))
+            },
             mailingLists = pom.mailingLists.map {
-                MailingList(
+                it.copy(
                     name = map(it.name),
                     subscribe = map(it.subscribe),
                     unsubscribe = map(it.unsubscribe),
@@ -119,7 +150,13 @@ internal object PomPlaceholders {
                     archive = map(it.archive)
                 )
             },
-            scm = pom.scm?.let { Scm(map(it.connection), map(it.developerConnection), map(it.url)) }
+            scm = pom.scm?.let { scm ->
+                scm.copy(
+                    connection = map(scm.connection),
+                    developerConnection = map(scm.developerConnection),
+                    url = map(scm.url)
+                )
+            }
         )
     }
 }

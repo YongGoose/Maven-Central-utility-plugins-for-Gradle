@@ -98,6 +98,34 @@ class PomPlaceholdersTest {
         assertTrue(PomPlaceholders.unresolved(resolved).isNotEmpty())
     }
 
+    /**
+     * Nothing substitutes into a coordinate, so a placeholder written in one survives resolution
+     * untouched — and `validateCoordinates` only rejects a version that is blank or a snapshot.
+     * Without the coordinates being scanned, `${'$'}{version}-RC` would publish exactly as typed.
+     */
+    @Test
+    fun `a placeholder left in a coordinate is reported`() {
+        val resolved = PomPlaceholders.resolve(pom(version = "\${version}-RC"))
+
+        assertEquals("\${version}-RC", resolved.version)
+        assertEquals(listOf("\${version}-RC"), PomPlaceholders.unresolved(resolved))
+    }
+
+    /**
+     * Blank is not "unset with extra steps". `projectPom { artifactId = "" }` wins the merge, and
+     * substituting it would turn the root template into `https://github.com/YongGoose/` — a URL
+     * that looks right and is not.
+     */
+    @Test
+    fun `a blank coordinate is left in place rather than substituted away`() {
+        val resolved = PomPlaceholders.resolve(
+            pom(artifactId = "", scm = Scm(url = "https://github.com/YongGoose/\${artifactId}"))
+        )
+
+        assertEquals("https://github.com/YongGoose/\${artifactId}", resolved.scm?.url)
+        assertTrue(PomPlaceholders.unresolved(resolved).isNotEmpty())
+    }
+
     @Test
     fun `text with no placeholder is returned unchanged, dollar signs included`() {
         val original = pom(

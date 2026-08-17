@@ -134,7 +134,16 @@ root's coordinate.
 > same job: `'https://github.com/YongGoose/${artifactId}'`.
 
 Anything else is left exactly as written — `$artifactId` without braces, `${a.b}`, a plain dollar
-sign. Only those three names, and only when the merged POM sets them.
+sign. Only those three names, and only when the merged POM sets them to something non-blank.
+
+> [!NOTE]
+> There is no escape for a **literal** `${identifier}` in POM text. `${...}` is placeholder syntax
+> everywhere the plugin looks, so a description that genuinely needs to contain `${revision}` has
+> to be reworded. This is deliberate: an escape would have to survive resolution to be checked and
+> be gone by the time the POM is published, and those two cannot both be true in one pass. The
+> alternative — only reporting the three known names — would let `${artifctId}` through, which is
+> the mistake worth catching. Maven interpolates `${...}` in POMs itself, so a literal one is
+> ambiguous there in any case.
 
 A placeholder that could not be resolved — a misspelling, or a coordinate nothing set — is **not**
 substituted with a guess. It stays put and `checkProjectArtifact` reports it:
