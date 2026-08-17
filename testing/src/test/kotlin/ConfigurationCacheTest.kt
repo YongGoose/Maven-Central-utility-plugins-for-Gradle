@@ -27,8 +27,14 @@ import java.nio.file.Path
  */
 class ConfigurationCacheTest {
 
-    /** The message Gradle refused with before the task declared itself incompatible. */
-    private val serializationFailure = "cannot serialize object of type"
+    /**
+     * What used to fail the build.
+     *
+     * Not the `cannot serialize object of type …` line: Gradle still prints that, and still
+     * discards the entry over it. What the declaration changes is that the problem stops being
+     * fatal — before it was raised as this exception and the build ended `BUILD FAILED`.
+     */
+    private val fatalProblem = "ConfigurationCacheProblemsException"
 
     @TempDir
     lateinit var projectDir: Path
@@ -85,8 +91,15 @@ class ConfigurationCacheTest {
                 "the $which run did not execute the task"
             )
             Assertions.assertFalse(
-                result.output.contains(serializationFailure),
-                "the $which run still failed to serialize the task:\n${result.output}"
+                result.output.contains(fatalProblem),
+                "the $which run still treated the incompatibility as fatal:\n${result.output}"
+            )
+            // The entry is still discarded -- the task is incompatible, not fixed. Asserted so
+            // that a future change which quietly starts caching this task has to come here and
+            // say so.
+            Assertions.assertTrue(
+                result.output.contains("Configuration cache entry discarded"),
+                "the $which run cached a task that cannot be cached:\n${result.output}"
             )
             // Running is not the same as reporting. An incompatible task that Gradle skipped
             // instead of executing would satisfy neither of these.

@@ -107,14 +107,22 @@ truncated, or does not parse as a signature list all produce `SignatureVerificat
 
 ### Current limitations
 
-`checkProjectArtifact` is **not configuration-cache compatible**, and says so rather than failing.
-Running it with `--configuration-cache` turns the cache off for that build and names the task:
+`checkProjectArtifact` is **not configuration-cache compatible**, and declares it rather than
+leaving the build to discover it. With `--configuration-cache` the run succeeds and the cache
+entry is thrown away:
 
 ```
-Configuration cache disabled because incompatible task ':checkProjectArtifact' was found
+1 problem was found storing the configuration cache.
+- Task ':checkProjectArtifact' of type 'org.gradle.api.DefaultTask': cannot serialize object
+  of type 'org.gradle.api.internal.project.DefaultProject' …
+
+BUILD SUCCESSFUL
+Configuration cache entry discarded with 1 problem.
 ```
 
-The rest of the build is unaffected; only invocations that schedule this task lose caching.
+The problem is still reported — it is real — but it is no longer fatal, which it was before the
+task declared itself. Only invocations that schedule this task lose caching; the rest of the build
+is unaffected.
 
 The reason is the freshness rule above. Whether a signature belongs to *this* build is answered by
 its `Sign` task's outcome, and task outcomes do not exist before execution — while the
