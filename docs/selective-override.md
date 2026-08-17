@@ -37,7 +37,7 @@ rootProjectPom {
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0"
 }
 
 projectPom {

@@ -23,8 +23,8 @@ Two of the three plugins go in `build.gradle.kts`:
 
 ```kotlin
 plugins {
-  id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7" // Applies organization-wide defaults to projects.
-  id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7" // Validates artifacts before publishing.
+  id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0" // Applies organization-wide defaults to projects.
+  id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.2.0" // Validates artifacts before publishing.
 }
 ```
 
@@ -34,7 +34,7 @@ a build script cannot apply it:
 ```kotlin
 // settings.gradle.kts
 plugins {
-  id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7" // Build-wide POM defaults.
+  id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.2.0" // Build-wide POM defaults.
 }
 ```
 
@@ -52,8 +52,8 @@ also what `checkProjectArtifact` looks for:
 plugins {
     `maven-publish`
     signing
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
-    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0"
+    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.2.0"
 }
 
 rootProjectPom {
@@ -125,7 +125,7 @@ repositories.
 ```kotlin
 // settings.gradle.kts
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.2.0"
 }
 
 rootProjectSetting {
@@ -182,7 +182,7 @@ import io.github.yonggoose.organizationdefaults.OrganizationDefaults
 
 plugins {
     id("java")
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0"
     id("com.vanniktech.maven.publish") version "0.34.0"
     id("maven-publish")
 }

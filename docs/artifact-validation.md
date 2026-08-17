@@ -11,8 +11,8 @@ The check plugin reads the metadata the **project** plugin produces and inspects
 plugins {
     `maven-publish`
     signing
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
-    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0"
+    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.2.0"
 }
 ```
 
@@ -231,8 +231,8 @@ This plugin can be used alongside the Maven Publish plugin to validate artifacts
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
-    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0"
+    id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.2.0"
     id("com.vanniktech.maven.publish") version "0.34.0"
     signing
 }

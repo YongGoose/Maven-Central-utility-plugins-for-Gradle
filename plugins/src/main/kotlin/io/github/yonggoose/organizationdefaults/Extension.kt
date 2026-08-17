@@ -185,9 +185,12 @@ class PomDefaultsSettingsPlugin : Plugin<Settings> {
 
 /*
  * The old names, kept so that a build that spelled one out gets a warning naming its replacement
- * rather than an unresolved reference. Due for removal in 0.2.0, alongside the two renames this
- * change deliberately left alone -- `OrganizationDefaults` itself and the package -- which are the
- * ones every documented integration copies.
+ * rather than an unresolved reference.
+ *
+ * Removal is 0.3.0, not 0.2.0 as first written. 0.2.0 is the release that *introduces* the new
+ * names -- the last published version, 0.1.7, knows only the old ones -- so dropping the aliases
+ * here would give every consumer a rename with no version in between to see the warning in. A
+ * deprecation that ships and is removed in the same release is just a break with extra ceremony.
  *
  * The plugin classes need no alias: they are reached through their ids, and `implementationClass`
  * is the only place their names are written.
@@ -195,19 +198,19 @@ class PomDefaultsSettingsPlugin : Plugin<Settings> {
 
 @Deprecated(
     "Renamed to PomDefaultsSettingsExtension, to pair with PomDefaultsExtension and with the " +
-        "plugin that registers it. Will be removed in 0.2.0.",
+        "plugin that registers it. Will be removed in 0.3.0.",
     ReplaceWith("PomDefaultsSettingsExtension")
 )
 typealias OrganizationDefaultsExtension = PomDefaultsSettingsExtension
 
 @Deprecated(
-    "Renamed to PomDefaultsParameters. Will be removed in 0.2.0.",
+    "Renamed to PomDefaultsParameters. Will be removed in 0.3.0.",
     ReplaceWith("PomDefaultsParameters")
 )
 typealias OrganizationDefaultsParameters = PomDefaultsParameters
 
 @Deprecated(
-    "Renamed to PomDefaultsService. Will be removed in 0.2.0.",
+    "Renamed to PomDefaultsService. Will be removed in 0.3.0.",
     ReplaceWith("PomDefaultsService")
 )
 typealias OrganizationDefaultsService = PomDefaultsService

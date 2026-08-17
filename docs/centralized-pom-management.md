@@ -20,7 +20,7 @@ In `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0"
 }
 
 rootProjectPom {
@@ -66,7 +66,7 @@ level up, in `settings.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.2.0"
 }
 
 rootProjectSetting {
@@ -185,7 +185,7 @@ plugin on the script's classpath and what makes the `rootProjectPom { }` accesso
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7"
+    id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.2.0"
 }
 
 subprojects {
