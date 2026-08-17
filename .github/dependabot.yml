@@ -11,13 +11,14 @@ updates:
     labels:
       - "dependencies"
 
-  # Keeps BouncyCastle, Kotlin, ktlint and the plugin-publish plugin current. Dependabot only
-  # scans the directories listed here, and the interesting dependencies live in the subprojects.
+  # Keeps BouncyCastle, Kotlin, ktlint and the plugin-publish plugin current.
+  #
+  # "/" alone, not "/plugins" and "/testing" as well: the Gradle scan at the root resolves the
+  # whole multi-project build, so a listed subproject produces a second PR for a bump the root
+  # scan already made. The last batch opened three PRs per dependency this way -- one useful, two
+  # whose diffs were subsets of it (#44 against #54/#56, #47 against #55/#57).
   - package-ecosystem: "gradle"
-    directories:
-      - "/"
-      - "/plugins"
-      - "/testing"
+    directory: "/"
     schedule:
       interval: "monthly"
     commit-message:
