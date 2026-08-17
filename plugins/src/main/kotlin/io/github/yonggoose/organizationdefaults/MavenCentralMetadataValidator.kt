@@ -48,8 +48,25 @@ object MavenCentralMetadataValidator {
         validateLicenses(pom, errors)
         validateDevelopers(pom, errors)
         validateScm(pom, errors)
+        validatePlaceholders(pom, errors)
 
         return errors
+    }
+
+    /**
+     * Not a Maven Central rule, but the same kind of failure the rest of these catch.
+     *
+     * A `${...}` that survived [PomPlaceholders.resolve] names a coordinate that is unset or
+     * misspelled, and would be uploaded exactly as written — a literal `${artifctId}` in the SCM
+     * URL of a published POM. Central accepts it; nobody reading the POM can use it.
+     */
+    private fun validatePlaceholders(pom: OrganizationDefaults, errors: MutableList<String>) {
+        PomPlaceholders.unresolved(pom).forEach { value ->
+            errors.add(
+                "Unresolved placeholder in '$value': only \${groupId}, \${artifactId} and " +
+                    "\${version} are substituted, and only when this POM sets them."
+            )
+        }
     }
 
     private fun validateCoordinates(pom: OrganizationDefaults, errors: MutableList<String>) {

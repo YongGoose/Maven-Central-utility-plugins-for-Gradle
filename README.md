@@ -150,6 +150,21 @@ projectPom {
 }
 ```
 
+Fields can refer to `${groupId}`, `${artifactId}` and `${version}`, which is what makes an SCM
+block worth declaring once — it is substituted **after** the merge, so each module gets its own:
+
+```kotlin
+rootProjectPom {
+    scm {
+        url = "https://github.com/YongGoose/\${artifactId}"
+    }
+}
+```
+
+The backslash matters: a bare `${artifactId}` in a `.kts` file is Kotlin interpolation and
+silently resolves to something else. See
+[templates](docs/centralized-pom-management.md#templates-groupid-artifactid-version).
+
 The result is written to each module's `mergedDefaults`, so
 `io.github.yonggoose.maven.central.utility.plugin.project` still has to be applied to every module
 that reads it — the settings plugin alone produces nothing.
