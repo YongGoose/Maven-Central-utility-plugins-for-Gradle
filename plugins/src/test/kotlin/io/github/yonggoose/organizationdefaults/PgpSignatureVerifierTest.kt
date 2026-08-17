@@ -212,13 +212,29 @@ class PgpSignatureVerifierTest {
         assertTrue(result.detail.contains("not in 'pubring.asc'"), result.detail)
     }
 
+    /**
+     * Loading has to throw rather than return an empty ring. A build that configured a key and got
+     * nothing usable back would otherwise keep reporting "verified successfully" off the
+     * structure-only path, having asked for the opposite.
+     *
+     * Both inputs below fail, by different routes -- arbitrary text decodes to a key ring
+     * collection with nothing in it, while truncated armor fails in the parse -- so the assertion
+     * is on the outcome and the source being named, not on which route it took.
+     */
     @Test
     fun `an unreadable key ring is rejected instead of falling back to the structural check`() {
-        val failure = assertFailsWith<IllegalArgumentException> {
-            PgpPublicKeys.load("this is not a key ring".toByteArray(), "'pubring.asc'")
+        listOf(
+            "this is not a key ring",
+            "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nbm90IGEga2V5\n=AAAA\n-----END PGP PUBLIC KEY BLOCK-----"
+        ).forEach { garbage ->
+            val failure = assertFailsWith<IllegalArgumentException> {
+                PgpPublicKeys.load(garbage.toByteArray(), "'pubring.asc'")
+            }
+            assertTrue(
+                failure.message!!.contains("'pubring.asc'"),
+                "the failure has to say which key ring it was: ${failure.message}"
+            )
         }
-
-        assertTrue(failure.message!!.contains("Could not read a PGP public key ring"), failure.message!!)
     }
 
     // The signature-to-file pairing used to be derived here from file names and paths, and got

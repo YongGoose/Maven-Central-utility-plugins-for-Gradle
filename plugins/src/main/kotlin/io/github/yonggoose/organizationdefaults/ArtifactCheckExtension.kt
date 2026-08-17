@@ -28,8 +28,8 @@ abstract class ArtifactCheckExtension {
     /**
      * An exported public key ring, armored (`gpg --armor --export`) or binary (`gpg --export`).
      *
-     * It only ever needs the public half. Pointing this at a secret key ring fails with a parse
-     * error rather than working by accident.
+     * Only the public half is ever needed here. Anything this cannot be read as a public key ring
+     * fails the build rather than falling back to the structural check.
      */
     abstract val publicKeyRing: RegularFileProperty
 
