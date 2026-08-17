@@ -30,6 +30,38 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             description =
                 "Verifies that all artifacts staged for publishing are signed and meet Maven Central requirements."
 
+            // Declaring the incompatibility rather than leaving the build to hit it. Without this,
+            // `--configuration-cache` fails outright with "cannot serialize object of type
+            // DefaultProject", and the task cannot be run at all; with it, Gradle turns the cache
+            // off for the build, says which task did it, and runs.
+            //
+            // The report below dereferences `Project` at execution time, and the part that cannot
+            // be lifted out is the freshness test: whether a signature, a POM or a module.json
+            // belongs to *this* build is answered by the producing task's
+            // `state.didWork || state.upToDate`, and task state does not exist before execution.
+            //
+            // Two ways of computing it ahead of time were tried and rejected, both reviewed:
+            //
+            //   - deciding from the task graph (`enabled`, not excluded by `-x`, plus the signing
+            //     plugin's own `isRequired || signatory != null`) cannot see `onlyIf`. A predicate
+            //     the build added to a `Sign` task, and the one Gradle itself puts on
+            //     GenerateModuleMetadata for publications with no component, both leave a task
+            //     enabled while it produces nothing -- so stale `.asc` files would have been
+            //     reported as verified. Fail-open, which is the failure this task exists to remove.
+            //
+            //   - a BuildService subscribed to task completion events sees the outcome exactly,
+            //     but `BuildEventsListenerRegistry` delivers asynchronously: events are queued and
+            //     drained on their own thread, and `dependsOn` orders execution, not delivery. A
+            //     correctly signed build could intermittently report "No PGP signatures were
+            //     produced". Fail-closed, but flaky.
+            //
+            // Accuracy wins. Tracked in
+            // https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/43.
+            notCompatibleWithConfigurationCache(
+                "Decides whether a signature, POM or module.json belongs to this build from its " +
+                    "producing task's outcome, which does not exist before execution."
+            )
+
             // The signatures, the POM and the module metadata only exist on disk once their
             // producing tasks have run.
             //

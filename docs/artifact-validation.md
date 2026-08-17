@@ -107,6 +107,32 @@ truncated, or does not parse as a signature list all produce `SignatureVerificat
 
 ### Current limitations
 
+`checkProjectArtifact` is **not configuration-cache compatible**, and declares it rather than
+leaving the build to discover it. With `--configuration-cache` the run succeeds and the cache
+entry is thrown away:
+
+```
+1 problem was found storing the configuration cache.
+- Task ':checkProjectArtifact' of type 'org.gradle.api.DefaultTask': cannot serialize object
+  of type 'org.gradle.api.internal.project.DefaultProject' …
+
+BUILD SUCCESSFUL
+Configuration cache entry discarded with 1 problem.
+```
+
+The problem is still reported — it is real — but it is no longer fatal, which it was before the
+task declared itself. Only invocations that schedule this task lose caching; the rest of the build
+is unaffected.
+
+The reason is the freshness rule above. Whether a signature belongs to *this* build is answered by
+its `Sign` task's outcome, and task outcomes do not exist before execution — while the
+configuration cache requires everything a task action reads to be known by then. Two ways of
+deciding it in advance were tried and rejected: reading the task graph cannot see `onlyIf`, so
+stale signatures would have been reported as verified, and a build-event listener sees outcomes
+exactly but is delivered asynchronously, so a correctly signed build could intermittently report
+that nothing was signed. Neither trade was worth making on a signature check. Tracked in
+[#43](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/43).
+
 The signature check validates **structure**, not cryptographic validity: the plugin does not yet
 verify a signature against a public key, so it cannot detect a well-formed signature produced over
 different content. Full verification is tracked in
