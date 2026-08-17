@@ -77,7 +77,51 @@ Maven Central requires every published file to be signed. The plugin checks that
 3. The generated Gradle Module Metadata (`module.json`) is signed too, when it is part of the
    publication. It is published and checked at upload alongside the POM. Builds that disable
    `GenerateModuleMetadata` are unaffected.
-4. Each signature parses as a well-formed detached PGP signature (using BouncyCastle).
+4. Each signature parses as a well-formed detached PGP signature (using BouncyCastle), and — when
+   a public key is configured — actually verifies against the bytes it covers.
+
+### Verifying against a public key
+
+Point the check at the public half of the key that signs your artifacts, and every signature is
+verified cryptographically rather than merely parsed:
+
+```kotlin
+artifactCheck {
+    publicKeyRing = file("pubring.asc")          // gpg --armor --export <key-id> > pubring.asc
+    // or, for CI:
+    // inMemoryPublicKey = providers.environmentVariable("SIGNING_PUBLIC_KEY")
+}
+```
+
+Set one or the other, not both — with both the build stops rather than picking one.
+
+The key has to be supplied explicitly because the plugin cannot derive it. The `signing` plugin
+holds a *secret* key, and its three configuration forms do not lead back to a public key the same
+way: `useGpgCmd()` hands signing to an external process that never exposes one.
+
+Two failures become visible that the structural check cannot see:
+
+| Situation | Report |
+|---|---|
+| The file changed after it was signed | `The signature for … does not match its contents.` |
+| A different key signed it | `… is signed with key 0x…, which is not in 'pubring.asc'.` |
+
+A key ring that is configured but unreadable, or missing from disk, **fails the build**. It does
+not fall back to the structural check — configuring verification and silently getting none is the
+outcome this task exists to prevent.
+
+With no key configured the check is structural only, as before, and the **verdict itself** says so
+rather than reading `verified successfully`:
+
+```
+✅ ArtifactCheckPlugin: metadata validation passed and every PGP signature parsed, but no public
+   key is configured — this run does not confirm they were made over these files.
+```
+
+That wording matters for the CI recipe above. If `SIGNING_PUBLIC_KEY` is not set — a fork build, a
+renamed secret, a typo — the provider simply has no value, which the plugin cannot tell apart from
+never having configured a key at all. The verdict line is what makes the difference visible. A
+secret that expands to an **empty** string *is* distinguishable, and fails the build.
 
 Each file is paired with its signature using the mapping **Gradle itself records**
 (`Signature.toSign`), not by deriving a name or a path. Two things follow:
@@ -133,10 +177,11 @@ exactly but is delivered asynchronously, so a correctly signed build could inter
 that nothing was signed. Neither trade was worth making on a signature check. Tracked in
 [#43](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/43).
 
-The signature check validates **structure**, not cryptographic validity: the plugin does not yet
-verify a signature against a public key, so it cannot detect a well-formed signature produced over
-different content. Full verification is tracked in
-[#22](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/22).
+Without an `artifactCheck` public key the signature check validates **structure** only, so it
+cannot tell a well-formed signature produced over different content from a correct one. See
+[Verifying against a public key](#verifying-against-a-public-key) for turning that into a real
+verification. What is still not checked either way is whether the key is one Maven Central will
+accept — that it is published to a keyserver, unexpired and unrevoked.
 
 `signing { setRequired(false) }` means an **unsigned file is not an error**. What the task does
 then depends on what got signed anyway:
