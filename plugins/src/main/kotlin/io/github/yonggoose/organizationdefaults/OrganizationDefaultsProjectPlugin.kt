@@ -57,7 +57,7 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                         "'io.github.yonggoose.maven.central.utility.plugin.project' to the root project for a " +
                         "'$ROOT_EXTENSION_NAME' block, or " +
                         "'io.github.yonggoose.maven.central.utility.plugin.setting' in settings.gradle.kts for a " +
-                        "'${OrganizationDefaultsSettingsPlugin.ROOT_SETTING_NAME}' block."
+                        "'${OrganizationDefaultsSettingsPlugin.EXTENSION_NAME}' block."
                 )
             }
 
@@ -76,10 +76,15 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
      * extensions, so [OrganizationDefaultsSettingsPlugin] puts the metadata into a shared build
      * service and this reads it back out. Being the base of the merge chain, it loses to both
      * `rootProjectPom` and `projectPom`.
+     *
+     * An applied-but-unconfigured settings plugin reads as `null` too. The two are the same thing
+     * as far as the merge goes, and the caller's warning needs them to stay indistinguishable:
+     * applying the settings plugin without writing a `rootProjectSetting { }` block must not
+     * silence "no organization-wide POM defaults were found".
      */
     private fun resolveSettingsDefaults(project: Project): OrganizationDefaults? {
         val registration = project.gradle.sharedServices.registrations
-            .findByName(OrganizationDefaultsSettingsPlugin.ROOT_SETTING_NAME)
+            .findByName(OrganizationDefaultsSettingsPlugin.SERVICE_NAME)
             ?: return null
 
         val service = registration.service.get()
@@ -87,14 +92,14 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
             // Same failure mode as the root-extension check above, one build phase earlier: the
             // settings plugin registered a service this project's classloader cannot see as ours.
             throw IllegalStateException(
-                "The '${OrganizationDefaultsSettingsPlugin.ROOT_SETTING_NAME}' build service is a " +
+                "The '${OrganizationDefaultsSettingsPlugin.SERVICE_NAME}' build service is a " +
                     "${service.javaClass.name}, not a ${OrganizationDefaultsService::class.java.name}. " +
                     "Check for more than one version of " +
                     "'io.github.yonggoose.maven.central.utility.plugin.setting' on the build classpath."
             )
         }
 
-        return service.getDefaults().toOrganizationDefaults()
+        return service.getDefaults().toOrganizationDefaults().takeIf { it != OrganizationDefaults() }
     }
 
     companion object {

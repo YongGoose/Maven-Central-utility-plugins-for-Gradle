@@ -140,10 +140,10 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
  */
 class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
-        val ext = settings.extensions.create(ROOT_SETTING_NAME, OrganizationDefaultsExtension::class.java)
+        val ext = settings.extensions.create(EXTENSION_NAME, OrganizationDefaultsExtension::class.java)
 
         settings.gradle.sharedServices.registerIfAbsent(
-            ROOT_SETTING_NAME,
+            SERVICE_NAME,
             OrganizationDefaultsService::class.java
         ) {
             // A `provider {}` lambda that returns null leaves the property unset, which keeps
@@ -168,11 +168,17 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
     }
 
     companion object {
+        /** Name of the settings extension: the `rootProjectSetting { }` block. */
+        const val EXTENSION_NAME: String = "rootProjectSetting"
+
         /**
-         * Name of the `rootProjectSetting { }` settings extension, and of the build service that
-         * carries it. Deliberately one name for both: there is exactly one of each per build, and
-         * [OrganizationDefaultsProjectPlugin] looks the service up by this name.
+         * Name of the build service [OrganizationDefaultsProjectPlugin] looks up.
+         *
+         * Build service names share one namespace across the whole build tree, so this is
+         * qualified rather than reusing [EXTENSION_NAME]: an unqualified `rootProjectSetting` is
+         * a name another plugin could plausibly register, and this plugin would then greet that
+         * build with a type error naming a plugin it never applied.
          */
-        const val ROOT_SETTING_NAME: String = "rootProjectSetting"
+        const val SERVICE_NAME: String = "io.github.yonggoose.organizationdefaults.rootProjectSetting"
     }
 }

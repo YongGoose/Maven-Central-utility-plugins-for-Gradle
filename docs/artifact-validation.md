@@ -31,7 +31,7 @@ to chain it after `publish` manually. On a machine without a usable signing key 
 fails first; see [Current limitations](#current-limitations).
 
 In a multi-module build the task validates **the metadata of the project it runs in**, i.e. the
-result of merging `rootProjectPom` with that module's `projectPom`. Running
+result of merging `rootProjectSetting`, `rootProjectPom` and that module's `projectPom`. Running
 `./gradlew :sub:checkProjectArtifact` therefore checks `:sub`'s effective POM, overrides included.
 
 ## Metadata Validation
