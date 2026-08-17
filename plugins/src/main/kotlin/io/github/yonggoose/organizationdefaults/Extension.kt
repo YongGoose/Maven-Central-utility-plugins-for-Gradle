@@ -132,13 +132,18 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
 
 /**
  * Gradle settings plugin for registering and configuring organization default metadata.
+ *
+ * A settings extension cannot be reached from a [org.gradle.api.Project], so what
+ * `rootProjectSetting { }` configures is handed to [OrganizationDefaultsProjectPlugin] through the
+ * shared build service registered here. That plugin is the only consumer; without it applied to a
+ * project, configuring `rootProjectSetting` has no effect on that project's `mergedDefaults`.
  */
 class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
-        val ext = settings.extensions.create("rootProjectSetting", OrganizationDefaultsExtension::class.java)
+        val ext = settings.extensions.create(ROOT_SETTING_NAME, OrganizationDefaultsExtension::class.java)
 
         settings.gradle.sharedServices.registerIfAbsent(
-            "rootProjectSetting",
+            ROOT_SETTING_NAME,
             OrganizationDefaultsService::class.java
         ) {
             // A `provider {}` lambda that returns null leaves the property unset, which keeps
@@ -160,5 +165,14 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
             parameters.issueManagement.set(settings.providers.provider<IssueManagement> { ext.issueManagement })
             parameters.scm.set(settings.providers.provider<Scm> { ext.scm })
         }
+    }
+
+    companion object {
+        /**
+         * Name of the `rootProjectSetting { }` settings extension, and of the build service that
+         * carries it. Deliberately one name for both: there is exactly one of each per build, and
+         * [OrganizationDefaultsProjectPlugin] looks the service up by this name.
+         */
+        const val ROOT_SETTING_NAME: String = "rootProjectSetting"
     }
 }

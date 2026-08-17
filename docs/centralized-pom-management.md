@@ -58,13 +58,50 @@ rootProjectPom {
 }
 ```
 
+### Build-wide defaults in `settings.gradle.kts`
+
+`rootProjectPom` lives on the root project, which means the root project has to carry publishing
+metadata even when it publishes nothing itself. The **settings** plugin offers the same DSL one
+level up, in `settings.gradle.kts`:
+
+```kotlin
+plugins {
+    id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7"
+}
+
+rootProjectSetting {
+    groupId = "io.github.yonggoose"
+    version = "1.0.0"
+
+    licenses {
+        license {
+            name = "Apache-2.0"
+            url = "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+    }
+}
+```
+
+`rootProjectSetting` is the **weakest** of the three levels: `rootProjectPom` overrides it, and
+`projectPom` overrides both. Declaring the same field in both `rootProjectSetting` and
+`rootProjectPom` is therefore redundant rather than additive — most builds pick one of the two.
+
+Two things it does not do:
+
+- It does not apply the project plugin for you. Every module whose `mergedDefaults` you read still
+  needs `io.github.yonggoose.maven.central.utility.plugin.project`; without it there is no
+  `mergedDefaults` entry to read, whatever `settings.gradle.kts` says.
+- It is a settings plugin, so it can only be applied from `settings.gradle.kts`. Listing its id in
+  a build script's `plugins { }` block fails to resolve.
+
 ## Technical Implementation
 
 The plugin is implemented via the `OrganizationDefaultsProjectPlugin` class and stores all POM metadata in the `OrganizationDefaults` data class.
 
-The plugin writes the result of merging `rootProjectPom` with the module's own `projectPom` into
-**each project's** `extraProperties` under the key `mergedDefaults`. Read it from the project you
-are configuring, not from the root — the root's entry does not contain that module's overrides:
+The plugin writes the result of merging `rootProjectSetting`, `rootProjectPom` and the module's own
+`projectPom` — in that order, each overriding the previous — into **each project's**
+`extraProperties` under the key `mergedDefaults`. Read it from the project you are configuring, not
+from the root — the root's entry does not contain that module's overrides:
 
 ```kotlin
 val pom = project.extensions.extraProperties.get("mergedDefaults") as OrganizationDefaults

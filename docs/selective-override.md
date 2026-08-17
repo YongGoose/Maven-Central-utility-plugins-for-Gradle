@@ -56,10 +56,21 @@ projectPom {
 ```
 
 ## Merge Mechanism
+
+Three levels are merged in order, each overriding the one before it:
+
+```
+rootProjectSetting  (settings.gradle.kts, optional)
+      ↓
+rootProjectPom      (root build.gradle.kts, optional)
+      ↓
+projectPom          (the module itself)
+```
+
 The `merge()` method in the `OrganizationDefaults` class follows these rules:
 
-1. Values explicitly set in the submodule override the defaults 
-2. Unset values inherit from the root project 
+1. Values explicitly set at a lower level override the ones above it
+2. Unset values inherit from the level above
 3. List-type fields (licenses, developers, etc.) fully replace the parent list when overridden
 4. **Block-type fields (`scm`, `organization`, `issueManagement`) also replace wholesale, not
    field by field.** A submodule that declares any part of a block declares all of it.
