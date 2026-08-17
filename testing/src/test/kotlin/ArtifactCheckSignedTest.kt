@@ -148,20 +148,22 @@ class ArtifactCheckSignedTest {
         )
 
         // The overall verdict alone cannot tell "everything was checked" from "only the POM was";
-        // `--info` logs one line per file, so assert both kinds were reached.
+        // `--info` logs one line per file, so assert both kinds were reached. "parsed", not
+        // "verified": no public key is configured in this build, and the per-file line says which
+        // of the two happened for the same reason the verdict line does.
         Assertions.assertTrue(
-            result.output.contains("PGP signature verified for artifact"),
+            result.output.contains("PGP signature parsed for artifact"),
             "the jar's own signature was never inspected"
         )
         Assertions.assertTrue(
-            result.output.contains("PGP signature verified for POM pom-default.xml"),
+            result.output.contains("PGP signature parsed for POM pom-default.xml"),
             "the POM signature was never inspected"
         )
         // Gradle Module Metadata is signed and uploaded alongside the POM. findModuleMetadataFile
         // returns null when it was not produced, which would skip this silently -- assert it was
         // genuinely checked rather than skipped.
         Assertions.assertTrue(
-            result.output.contains("PGP signature verified for module metadata module.json"),
+            result.output.contains("PGP signature parsed for module metadata module.json"),
             "the Gradle Module Metadata signature was never inspected"
         )
 
@@ -235,6 +237,16 @@ class ArtifactCheckSignedTest {
         Assertions.assertTrue(
             result.output.contains("verified against key"),
             "the signatures were not checked against the configured key:\n${result.output}"
+        )
+        // The other side of what `a genuinely signed publication passes signature verification`
+        // pins: with a key configured, the per-file line and the verdict both say "verified".
+        Assertions.assertTrue(
+            result.output.contains("PGP signature verified for artifact"),
+            "the per-file line still reported a parse rather than a verification:\n${result.output}"
+        )
+        Assertions.assertTrue(
+            result.output.contains("metadata and PGP signatures verified successfully"),
+            "the verdict did not claim the verification that actually happened:\n${result.output}"
         )
         Assertions.assertFalse(
             result.output.contains("checked for structure only"),

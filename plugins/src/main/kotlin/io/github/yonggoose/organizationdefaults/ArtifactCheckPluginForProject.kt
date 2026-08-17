@@ -107,7 +107,10 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                 val errors = mutableListOf<String>()
 
                 errors.addAll(MavenCentralMetadataValidator.validate(pom))
-                val publicKeys = resolvePublicKeys(project)
+                // Collected, not thrown. A misconfigured key ring alongside a missing <scm> used
+                // to hide the second problem behind the first, so fixing one produced a fresh
+                // failure -- against the whole point of gathering violations into one report.
+                val publicKeys = resolvePublicKeys(project, errors)
                 val signatureCheck = validatePgpSignatures(project, errors, publicKeys)
 
                 if (errors.isNotEmpty()) {
@@ -130,10 +133,20 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
                                 "not confirm they were made over these files. Set " +
                                 "'$EXTENSION_NAME { publicKeyRing = ... }' to verify them."
                         }
-                        SignatureCheck.PARTIAL ->
+                        // Split on the key for the same reason VERIFIED is: `setRequired(false)`
+                        // with `sign(configurations["archives"])` and no configured key lands
+                        // here, and "were verified" would be asserting a check that never ran.
+                        SignatureCheck.PARTIAL -> if (publicKeys != null) {
                             "✅ ArtifactCheckPlugin: metadata validation passed and the PGP signatures " +
                                 "that exist were verified. Some files are unsigned (see the warnings " +
                                 "above); signing is not required, so they were not treated as errors."
+                        } else {
+                            "✅ ArtifactCheckPlugin: metadata validation passed and the PGP signatures " +
+                                "that exist parsed, but no public key is configured — this run does " +
+                                "not confirm they were made over these files. Some files are unsigned " +
+                                "(see the warnings above); signing is not required, so they were not " +
+                                "treated as errors."
+                        }
                         SignatureCheck.SKIPPED ->
                             "✅ ArtifactCheckPlugin: metadata validation passed. PGP signature " +
                                 "verification was SKIPPED (see the warnings above) — this run does not " +
@@ -225,7 +238,10 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
         }
         project.logger.info("Found ${signatures.size} signature(s) for ${signatures.keys.map { it.name }.sorted()}")
 
-        if (publicKeys == null) {
+        // Only when there is genuinely no key. A key that was configured and would not load has
+        // already put its own, accurate error in the report, and "No public key is configured"
+        // would contradict it.
+        if (publicKeys == null && !hasPublicKeyConfigured(project)) {
             project.logger.warn(
                 "No public key is configured, so signatures are checked for structure only — this " +
                     "run does not confirm they were made over these files. Set " +
@@ -424,7 +440,10 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
 
         val result = PgpSignatureVerifier.verify(file, signatureFile, context.publicKeys)
         if (result.isOk) {
-            context.project.logger.info("PGP signature verified for $kind ${file.name}. ${result.detail}")
+            // "verified" only where something was verified. Someone grepping --info output for it
+            // should not get a hit for a signature that was merely read.
+            val outcome = if (context.publicKeys != null) "verified" else "parsed"
+            context.project.logger.info("PGP signature $outcome for $kind ${file.name}. ${result.detail}")
             context.verified++
         } else {
             // A broken signature fails regardless of `isRequired`: nobody opts into those.
@@ -478,17 +497,28 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
      * "verified successfully" — configuring verification and getting none is a worse outcome than
      * a build that stops and says so.
      */
-    private fun resolvePublicKeys(project: Project): PgpPublicKeys? {
+    /** Whether the build asked for verification at all, however badly it went. */
+    private fun hasPublicKeyConfigured(project: Project): Boolean {
+        val extension = project.extensions.findByType(ArtifactCheckExtension::class.java) ?: return false
+        return extension.inMemoryPublicKey.orNull != null || extension.publicKeyRing.orNull != null
+    }
+
+    private fun resolvePublicKeys(project: Project, errors: MutableList<String>): PgpPublicKeys? {
         val extension = project.extensions.findByType(ArtifactCheckExtension::class.java) ?: return null
 
         val inMemory = extension.inMemoryPublicKey.orNull
         val keyRingFile = extension.publicKeyRing.orNull?.asFile
 
+        // Every misconfiguration below is added to `errors` rather than thrown, so it is reported
+        // beside the metadata violations instead of hiding them. Returning null afterwards is safe
+        // precisely because the run cannot end well: a non-empty `errors` fails the task before any
+        // verdict is printed, so nothing claims a verification that did not happen.
         if (inMemory != null && keyRingFile != null) {
-            throw IllegalArgumentException(
+            errors.add(
                 "Both '$EXTENSION_NAME.inMemoryPublicKey' and '$EXTENSION_NAME.publicKeyRing' are " +
                     "set. Configure one, so it is unambiguous which key this build verifies against."
             )
+            return null
         }
 
         if (inMemory != null) {
@@ -496,24 +526,37 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
             // secret that failed to expand, and quietly demoting it to the structure-only check
             // would hand back "verified successfully" to the build that asked for the opposite.
             if (inMemory.isBlank()) {
-                throw IllegalArgumentException(
+                errors.add(
                     "'$EXTENSION_NAME.inMemoryPublicKey' is set but blank. If the key comes from " +
                         "an environment variable or a credentials store, it did not resolve."
                 )
+                return null
             }
-            return PgpPublicKeys.load(inMemory.toByteArray(), "'$EXTENSION_NAME.inMemoryPublicKey'")
+            return loadOrReport(errors) {
+                PgpPublicKeys.load(inMemory.toByteArray(), "'$EXTENSION_NAME.inMemoryPublicKey'")
+            }
         }
         if (keyRingFile != null) {
             // isFile, not exists: a directory exists and then fails inside the reader.
             if (!keyRingFile.isFile) {
-                throw IllegalArgumentException(
+                errors.add(
                     "'$EXTENSION_NAME.publicKeyRing' points at '${keyRingFile.path}', which is not a file."
                 )
+                return null
             }
-            return PgpPublicKeys.load(keyRingFile)
+            return loadOrReport(errors) { PgpPublicKeys.load(keyRingFile) }
         }
         return null
     }
+
+    /** Only [IllegalArgumentException]: that is what [PgpPublicKeys.load] raises for bad input. */
+    private fun loadOrReport(errors: MutableList<String>, load: () -> PgpPublicKeys): PgpPublicKeys? =
+        try {
+            load()
+        } catch (e: IllegalArgumentException) {
+            errors.add(e.message ?: "Could not read the configured PGP public key ring.")
+            null
+        }
 
     private fun pomTaskNameFor(publication: MavenPublication): String =
         "$GENERATE_POM_TASK_PREFIX${capitalize(publication.name)}Publication"

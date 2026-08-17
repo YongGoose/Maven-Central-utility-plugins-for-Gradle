@@ -16,8 +16,8 @@ import org.gradle.api.provider.Property
  * ```kotlin
  * artifactCheck {
  *     publicKeyRing = file("pubring.asc")
- *     // or, for CI:
- *     inMemoryPublicKey = providers.environmentVariable("SIGNING_PUBLIC_KEY")
+ *     // or, for CI -- one or the other, never both:
+ *     // inMemoryPublicKey = providers.environmentVariable("SIGNING_PUBLIC_KEY")
  * }
  * ```
  *
