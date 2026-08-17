@@ -19,13 +19,27 @@ A Gradle plugin that makes managing Maven POM metadata **simple and consistent**
 
 ### Plugin
 
+Two of the three plugins go in `build.gradle.kts`:
+
 ```kotlin
 plugins {
-  id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7" // Gradle plugin to apply organization-wide defaults to projects.
-  id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7" // Gradle plugin to apply organization-wide defaults to settings.
-  id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7" // Gradle plugin to check artifacts.
+  id("io.github.yonggoose.maven.central.utility.plugin.project") version "0.1.7" // Applies organization-wide defaults to projects.
+  id("io.github.yonggoose.maven.central.utility.plugin.check") version "0.1.7" // Validates artifacts before publishing.
 }
 ```
+
+The third is a **settings** plugin, so it belongs in `settings.gradle.kts` — a `plugins { }` block in
+a build script cannot apply it:
+
+```kotlin
+// settings.gradle.kts
+plugins {
+  id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7" // Build-wide POM defaults.
+}
+```
+
+It is optional. Use it when the defaults should sit above the root project — see
+[where to put the defaults](#-where-to-put-the-defaults) below.
 
 ### Dependency
 Not yet published to Maven Central. (Will be available soon.)
@@ -91,6 +105,54 @@ The task depends on the `Sign` tasks, so on a machine with no usable signing key
 plugin fails before any report is produced. See
 [artifact validation](docs/artifact-validation.md#current-limitations) for how to get a
 metadata-only run there — the answer depends on whether a signatory is configured.
+
+## 🧭 Where to put the defaults
+
+The same POM DSL is available at three levels. Each one overrides the one above it, field by
+field, and every level is optional:
+
+| Level | Block | Declared in | Applies to |
+|---|---|---|---|
+| 1 | `rootProjectSetting { }` | `settings.gradle.kts` (settings plugin) | the whole build |
+| 2 | `rootProjectPom { }` | the root project's `build.gradle.kts` | the whole build |
+| 3 | `projectPom { }` | each module's `build.gradle.kts` | that module only |
+
+Levels 1 and 2 do the same job, so most builds want only one of them. Reach for
+`rootProjectSetting` when the root project should not carry publishing metadata at all — an
+aggregator root that publishes nothing, or a convention `settings.gradle.kts` shared across
+repositories.
+
+```kotlin
+// settings.gradle.kts
+plugins {
+    id("io.github.yonggoose.maven.central.utility.plugin.setting") version "0.1.7"
+}
+
+rootProjectSetting {
+    groupId = "io.github.yonggoose"
+    version = "1.0.0"
+
+    licenses {
+        license {
+            name = "Apache-2.0"
+            url = "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+    }
+}
+```
+
+```kotlin
+// core/build.gradle.kts — inherits groupId, version and the license
+projectPom {
+    artifactId = "core"
+    name = "Core"
+    description = "Core functionality"
+}
+```
+
+The result is written to each module's `mergedDefaults`, so
+`io.github.yonggoose.maven.central.utility.plugin.project` still has to be applied to every module
+that reads it — the settings plugin alone produces nothing.
 
 ## 🔗 Integration
 
