@@ -61,9 +61,13 @@ class PomDefaultsProjectPlugin : Plugin<Project> {
                 )
             }
 
+            // Placeholders are resolved last, against the merged coordinates. A `${artifactId}`
+            // in a template declared once at the settings or root level has to see the module's
+            // own artifactId, and that value only exists after all three layers are merged.
             val merged = (settingsDefaults ?: OrganizationDefaults())
                 .merge(rootPomExt?.toOrganizationDefaults())
                 .merge(projectPomExt.toOrganizationDefaults())
+                .resolvePlaceholders()
 
             project.extensions.extraProperties.set(MERGED_DEFAULTS_PROPERTY, merged)
         }

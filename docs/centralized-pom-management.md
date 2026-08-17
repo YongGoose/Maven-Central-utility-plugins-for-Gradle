@@ -94,6 +94,57 @@ Two things it does not do:
 - It is a settings plugin, so it can only be applied from `settings.gradle.kts`. Listing its id in
   a build script's `plugins { }` block fails to resolve.
 
+### Templates: `${groupId}`, `${artifactId}`, `${version}`
+
+A literal SCM URL is a poor organization-wide default — it differs per repository by exactly one
+word. Those three coordinates can be referred to from any other field, and are substituted once the
+levels have been merged:
+
+```kotlin
+rootProjectPom {
+    groupId = "io.github.yonggoose"
+    version = "1.0.0"
+
+    url = "https://github.com/YongGoose/\${artifactId}"
+
+    scm {
+        url = "https://github.com/YongGoose/\${artifactId}"
+        connection = "scm:git:git@github.com:YongGoose/\${artifactId}.git"
+        developerConnection = "scm:git:git@github.com:YongGoose/\${artifactId}.git"
+    }
+}
+```
+
+```kotlin
+// core/build.gradle.kts
+projectPom {
+    artifactId = "core"      // -> https://github.com/YongGoose/core
+}
+```
+
+Substitution happens **after** the merge, so a template declared once picks up each module's own
+`artifactId`. That is the whole point of it: resolving per extension would give every module the
+root's coordinate.
+
+> [!IMPORTANT]
+> Note the **backslash**. In a `.kts` file, a bare `${artifactId}` is Kotlin string interpolation,
+> and it does not fail to compile — inside `rootProjectPom { scm { … } }` it resolves against the
+> extension's own `artifactId` property and quietly produces `https://github.com/YongGoose/null`.
+> Write `\${artifactId}` so the placeholder reaches the plugin. In Groovy, single quotes do the
+> same job: `'https://github.com/YongGoose/${artifactId}'`.
+
+Anything else is left exactly as written — `$artifactId` without braces, `${a.b}`, a plain dollar
+sign. Only those three names, and only when the merged POM sets them.
+
+A placeholder that could not be resolved — a misspelling, or a coordinate nothing set — is **not**
+substituted with a guess. It stays put and `checkProjectArtifact` reports it:
+
+```
+Validation failed:
+Unresolved placeholder in 'https://github.com/YongGoose/${artifctId}': only ${groupId},
+${artifactId} and ${version} are substituted, and only when this POM sets them.
+```
+
 ## Technical Implementation
 
 The plugin is implemented via the `PomDefaultsProjectPlugin` class and stores all POM metadata in the `OrganizationDefaults` data class.
