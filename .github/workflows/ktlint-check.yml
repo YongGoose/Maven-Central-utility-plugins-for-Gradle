@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # This job runs ./gradlew too, so it needs the same gate as pull-request.yml -- otherwise a
       # PR that swapped gradle-wrapper.jar would still get it executed here.
