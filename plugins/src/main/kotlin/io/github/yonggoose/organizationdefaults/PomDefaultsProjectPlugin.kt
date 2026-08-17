@@ -6,7 +6,7 @@ import org.gradle.api.Project
 /**
  * Extension for specifying default POM metadata for Gradle projects.
  *
- * Registered twice by [OrganizationDefaultsProjectPlugin]: as `rootProjectPom` on the root
+ * Registered twice by [PomDefaultsProjectPlugin]: as `rootProjectPom` on the root
  * project (the organization-wide defaults) and as `projectPom` on every project (the per-module
  * overrides). The DSL itself lives in [AbstractPomMetadataExtension].
  */
@@ -17,14 +17,14 @@ open class PomDefaultsExtension : AbstractPomMetadataExtension()
  *
  * Three layers feed each project's `mergedDefaults`, each one overriding the one before it:
  *
- * 1. `rootProjectSetting { }` in `settings.gradle.kts`, from [OrganizationDefaultsSettingsPlugin];
+ * 1. `rootProjectSetting { }` in `settings.gradle.kts`, from [PomDefaultsSettingsPlugin];
  * 2. `rootProjectPom { }` on the root project;
  * 3. `projectPom { }` on the project itself.
  *
  * Layers 1 and 2 are both optional; a build that uses only one of them gets exactly the behaviour
  * it had when that was the only one available.
  */
-class OrganizationDefaultsProjectPlugin : Plugin<Project> {
+class PomDefaultsProjectPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val projectPomExt = project.extensions.create("projectPom", PomDefaultsExtension::class.java)
 
@@ -57,7 +57,7 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
                         "'io.github.yonggoose.maven.central.utility.plugin.project' to the root project for a " +
                         "'$ROOT_EXTENSION_NAME' block, or " +
                         "'io.github.yonggoose.maven.central.utility.plugin.setting' in settings.gradle.kts for a " +
-                        "'${OrganizationDefaultsSettingsPlugin.EXTENSION_NAME}' block."
+                        "'${PomDefaultsSettingsPlugin.EXTENSION_NAME}' block."
                 )
             }
 
@@ -73,7 +73,7 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
      * What `rootProjectSetting { }` configured, or `null` when the settings plugin is not applied.
      *
      * Gradle exposes no path from a [Project] to the [org.gradle.api.initialization.Settings]
-     * extensions, so [OrganizationDefaultsSettingsPlugin] puts the metadata into a shared build
+     * extensions, so [PomDefaultsSettingsPlugin] puts the metadata into a shared build
      * service and this reads it back out. Being the base of the merge chain, it loses to both
      * `rootProjectPom` and `projectPom`.
      *
@@ -84,16 +84,16 @@ class OrganizationDefaultsProjectPlugin : Plugin<Project> {
      */
     private fun resolveSettingsDefaults(project: Project): OrganizationDefaults? {
         val registration = project.gradle.sharedServices.registrations
-            .findByName(OrganizationDefaultsSettingsPlugin.SERVICE_NAME)
+            .findByName(PomDefaultsSettingsPlugin.SERVICE_NAME)
             ?: return null
 
         val service = registration.service.get()
-        if (service !is OrganizationDefaultsService) {
+        if (service !is PomDefaultsService) {
             // Same failure mode as the root-extension check above, one build phase earlier: the
             // settings plugin registered a service this project's classloader cannot see as ours.
             throw IllegalStateException(
-                "The '${OrganizationDefaultsSettingsPlugin.SERVICE_NAME}' build service is a " +
-                    "${service.javaClass.name}, not a ${OrganizationDefaultsService::class.java.name}. " +
+                "The '${PomDefaultsSettingsPlugin.SERVICE_NAME}' build service is a " +
+                    "${service.javaClass.name}, not a ${PomDefaultsService::class.java.name}. " +
                     "Check for more than one version of " +
                     "'io.github.yonggoose.maven.central.utility.plugin.setting' on the build classpath."
             )

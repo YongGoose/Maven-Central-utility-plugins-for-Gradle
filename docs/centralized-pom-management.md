@@ -96,7 +96,7 @@ Two things it does not do:
 
 ## Technical Implementation
 
-The plugin is implemented via the `OrganizationDefaultsProjectPlugin` class and stores all POM metadata in the `OrganizationDefaults` data class.
+The plugin is implemented via the `PomDefaultsProjectPlugin` class and stores all POM metadata in the `OrganizationDefaults` data class.
 
 The plugin writes the result of merging `rootProjectSetting`, `rootProjectPom` and the module's own
 `projectPom` — in that order, each overriding the previous — into **each project's**

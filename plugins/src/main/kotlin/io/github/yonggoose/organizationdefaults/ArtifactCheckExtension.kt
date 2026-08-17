@@ -5,7 +5,7 @@ import org.gradle.api.provider.Property
 
 /**
  * Configuration for `checkProjectArtifact`, registered as `artifactCheck` by
- * [ArtifactCheckPluginForProject].
+ * [ArtifactCheckPlugin].
  *
  * Only the public key lives here, and only because the plugin cannot work it out on its own. The
  * `signing` plugin holds a *secret* key, and the three ways a build can configure one do not lead

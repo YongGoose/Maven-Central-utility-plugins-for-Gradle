@@ -71,7 +71,7 @@ class SettingsPluginTest {
     /**
      * Every POM element the DSL offers, configured in settings and asserted out of `mergedDefaults`.
      *
-     * The breadth is deliberate. `OrganizationDefaultsService.getDefaults()` rebuilds the metadata
+     * The breadth is deliberate. `PomDefaultsService.getDefaults()` rebuilds the metadata
      * by replaying it through the DSL — `organization { organization { … } }`, one nested block per
      * container — and that code only became load-bearing when this PR started reading the service.
      * A field dropped in there would otherwise disappear from every published POM silently.

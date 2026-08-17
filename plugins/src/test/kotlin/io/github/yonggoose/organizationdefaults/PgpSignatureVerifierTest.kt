@@ -239,5 +239,5 @@ class PgpSignatureVerifierTest {
 
     // The signature-to-file pairing used to be derived here from file names and paths, and got
     // it wrong three times. It now comes from Gradle's own `Signature.toSign`, so there is no
-    // matching logic left in this class to test -- see ArtifactCheckPluginForProject.collectSignatures.
+    // matching logic left in this class to test -- see ArtifactCheckPlugin.collectSignatures.
 }
