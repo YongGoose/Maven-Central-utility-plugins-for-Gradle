@@ -8,14 +8,15 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
 /**
- * `${'$'}{artifactId}` and friends in a template declared once, resolved per module.
+ * `${artifactId}` and friends in a template declared once, resolved per module.
  *
- * Note the backslash in every build script below. In `build.gradle.kts` a bare `${'$'}{artifactId}`
- * is **Kotlin string interpolation**, and it does not fail to compile — inside
+ * Note the backslash in every build script below. In `build.gradle.kts` a bare `${artifactId}` is
+ * **Kotlin string interpolation**, and it does not fail to compile — inside
  * `rootProjectPom { scm { … } }` it resolves against the enclosing extension's own `artifactId`
- * property and silently produces `.../null`. `\${'$'}{artifactId}` is what reaches the plugin.
+ * property and silently produces `.../null`. `\${artifactId}` is what reaches the plugin.
  *
- * In this file that literal is written `\${'$'}{artifactId}`, since the test source is Kotlin too.
+ * The build scripts are raw strings, so that literal is spelled `\` + `${'$'}` + `{artifactId}`
+ * here. The assertion at the bottom is a plain string, where `\$` already means a dollar.
  */
 class PomPlaceholderTest {
 
@@ -192,9 +193,11 @@ class PomPlaceholderTest {
                 .build()
         }
 
+        // A plain string literal, not a raw one: here `\$` is already the escape for a dollar, so
+        // the `${'$'}` spelling the build scripts above need would land in the assertion verbatim.
         assertValidationRejected(
             failure,
-            "Unresolved placeholder in 'https://github.com/YongGoose/\${'$'}{artifctId}'"
+            "Unresolved placeholder in 'https://github.com/YongGoose/\${artifctId}'"
         )
     }
 }
