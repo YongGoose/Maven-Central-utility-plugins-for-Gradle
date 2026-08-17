@@ -25,11 +25,6 @@ silently fall back to another project's metadata.
 ./gradlew checkProjectArtifact
 ```
 
-The task is **configuration-cache compatible**: it resolves the metadata, the publications and the
-signature pairings while the build is being configured, and holds no reference to `Project` at
-execution time. `./gradlew checkProjectArtifact --configuration-cache` stores an entry and the
-next run reuses it.
-
 The task depends on the tasks that produce what it inspects — the publication's artifacts, its
 `GenerateMavenPom` and `GenerateModuleMetadata` tasks, and its `Sign` tasks — so there is no need
 to chain it after `publish` manually. On a machine without a usable signing key that means signing
@@ -94,19 +89,12 @@ Each file is paired with its signature using the mapping **Gradle itself records
   signature, or one publication's `pom-default.xml.asc` standing in for another's — are impossible
   by construction rather than guarded against.
 
-Only signatures **this build produced** count. A `Sign` task that did not run — skipped by any
+Only signatures **this build produced** count. A `Sign` task that did not run — skipped by its
 `onlyIf`, disabled, or excluded with `-x signMavenPublication` — contributes nothing, even when an
 `.asc` file from an earlier run is still sitting in `build/`. Otherwise a dirty `build/` directory
 would report `PGP signatures verified successfully` for artifacts that were just rebuilt
 underneath a stale signature, which is the fail-open reporting this task exists to remove. The
-generated POM and module metadata are decided the same way, by their producing task's outcome —
-including the `onlyIf` Gradle itself puts on `GenerateModuleMetadata` for publications that carry
-no component.
-
-Outcomes reach the task through a build event listener rather than by reading another task's
-`state`, which is what lets it run under the configuration cache. Executed, `UP-TO-DATE` and
-`FROM-CACHE` all count as produced; `SKIPPED` and `NO-SOURCE` do not, and an excluded task is
-never reported at all.
+generated POM and module metadata are decided the same way, by their producing task's outcome.
 
 The flip side is that **signatures the Gradle `signing` plugin did not create are invisible**. If
 you sign artifacts with an external tool and drop the files into `build/`, `checkProjectArtifact`
@@ -118,6 +106,24 @@ truncated, or does not parse as a signature list all produce `SignatureVerificat
 — never a silent pass.
 
 ### Current limitations
+
+`checkProjectArtifact` is **not configuration-cache compatible**, and says so rather than failing.
+Running it with `--configuration-cache` turns the cache off for that build and names the task:
+
+```
+Configuration cache disabled because incompatible task ':checkProjectArtifact' was found
+```
+
+The rest of the build is unaffected; only invocations that schedule this task lose caching.
+
+The reason is the freshness rule above. Whether a signature belongs to *this* build is answered by
+its `Sign` task's outcome, and task outcomes do not exist before execution — while the
+configuration cache requires everything a task action reads to be known by then. Two ways of
+deciding it in advance were tried and rejected: reading the task graph cannot see `onlyIf`, so
+stale signatures would have been reported as verified, and a build-event listener sees outcomes
+exactly but is delivered asynchronously, so a correctly signed build could intermittently report
+that nothing was signed. Neither trade was worth making on a signature check. Tracked in
+[#43](https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/43).
 
 The signature check validates **structure**, not cryptographic validity: the plugin does not yet
 verify a signature against a public key, so it cannot detect a well-formed signature produced over

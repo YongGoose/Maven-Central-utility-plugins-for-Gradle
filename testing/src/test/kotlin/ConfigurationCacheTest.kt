@@ -1,3 +1,4 @@
+import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Assertions
@@ -8,31 +9,40 @@ import java.nio.file.Path
 /**
  * `checkProjectArtifact` under `--configuration-cache`.
  *
- * The task builds its whole report inside a `doLast` block that dereferences `Project` at
- * execution time — the merged metadata out of `extraProperties`, the `publishing` and `signing`
- * extensions, the `Sign` task list, another task's `state`, the logger. Gradle refuses to
- * serialize a task action holding a `Project`, so a consumer who turns the configuration cache on
- * cannot run the task at all.
+ * The task builds its report from `Project` at execution time, and the freshness test at the heart
+ * of it — whether a signature belongs to *this* build, answered by the producing task's
+ * `state.didWork || state.upToDate` — has no configuration-time equivalent. So it declares itself
+ * incompatible, and the point of these tests is that declaring it is not the same as failing:
+ * Gradle turns the cache off for the build and runs the task, where before it refused with
  *
- * Two runs, not one: the first stores the entry, the second reuses it. A task that survives
- * storing can still break on reuse, and reuse is the run every subsequent build in a project does.
+ * ```
+ * cannot serialize object of type 'org.gradle.api.internal.project.DefaultProject'
+ * ```
  *
- * Tracked in https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/43.
+ * Two runs, because the second is where a stored entry would have been reused. Nothing may be
+ * reused here, so the second run has to behave exactly like the first.
+ *
+ * Full compatibility stays open as
+ * https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/43.
  */
 class ConfigurationCacheTest {
+
+    /** The message Gradle refused with before the task declared itself incompatible. */
+    private val serializationFailure = "cannot serialize object of type"
 
     @TempDir
     lateinit var projectDir: Path
 
-    private fun runCheck() = GradleRunner.create()
-        .withProjectDir(projectDir.toFile())
-        .withArguments("checkProjectArtifact", "--configuration-cache", "--stacktrace")
-        .withPluginClasspath()
-        .forwardOutput()
-        .build()
+    private fun runCheck(): BuildResult =
+        GradleRunner.create()
+            .withProjectDir(projectDir.toFile())
+            .withArguments("checkProjectArtifact", "--configuration-cache", "--stacktrace")
+            .withPluginClasspath()
+            .forwardOutput()
+            .build()
 
     @Test
-    fun `the check task can be stored in and reused from the configuration cache`() {
+    fun `the check task runs under the configuration cache instead of failing the build`() {
         projectDir.resolve("settings.gradle.kts").toFile()
             .writeText(PomFixture.singleProjectSettings("configuration-cache"))
 
@@ -57,8 +67,8 @@ class ConfigurationCacheTest {
             }
 
             // No signatory anywhere, so Gradle's own `onlyIf { isRequired || signatory != null }`
-            // skips the Sign tasks and the run reports SKIPPED. This test is about where the task
-            // can run, not about what it concludes.
+            // skips the Sign tasks and the run reports SKIPPED. These tests are about where the
+            // task can run, not about what it concludes.
             signing {
                 setRequired(false)
                 sign(publishing.publications)
@@ -66,25 +76,24 @@ class ConfigurationCacheTest {
             """.trimIndent()
         )
 
-        val stored = runCheck()
-        Assertions.assertEquals(TaskOutcome.SUCCESS, stored.task(":checkProjectArtifact")?.outcome)
-        Assertions.assertTrue(
-            stored.output.contains("Configuration cache entry stored"),
-            "the first run did not store an entry:\n${stored.output}"
-        )
+        listOf("first", "second").forEach { which ->
+            val result = runCheck()
 
-        val reused = runCheck()
-        Assertions.assertEquals(TaskOutcome.SUCCESS, reused.task(":checkProjectArtifact")?.outcome)
-        Assertions.assertTrue(
-            reused.output.contains("Configuration cache entry reused"),
-            "the second run did not reuse the entry, so the task is only cacheable on paper:\n${reused.output}"
-        )
-        // Running is not the same as reporting correctly. Nothing was signed here, so the reused
-        // run has to reach the same verdict as the stored one -- a task that came back from the
-        // cache holding stale state would still pass every assertion above.
-        Assertions.assertTrue(
-            reused.output.contains("PGP signature verification was SKIPPED"),
-            "the run off the configuration cache did not reach the same verdict:\n${reused.output}"
-        )
+            Assertions.assertEquals(
+                TaskOutcome.SUCCESS,
+                result.task(":checkProjectArtifact")?.outcome,
+                "the $which run did not execute the task"
+            )
+            Assertions.assertFalse(
+                result.output.contains(serializationFailure),
+                "the $which run still failed to serialize the task:\n${result.output}"
+            )
+            // Running is not the same as reporting. An incompatible task that Gradle skipped
+            // instead of executing would satisfy neither of these.
+            Assertions.assertTrue(
+                result.output.contains("PGP signature verification was SKIPPED"),
+                "the $which run did not produce a verdict:\n${result.output}"
+            )
+        }
     }
 }

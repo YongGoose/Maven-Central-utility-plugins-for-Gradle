@@ -6,48 +6,64 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.tasks.GenerateMavenPom
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
-import org.gradle.build.event.BuildEventsListenerRegistry
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.plugins.signing.Sign
 import org.gradle.plugins.signing.Signature
 import org.gradle.plugins.signing.SigningExtension
 import java.io.File
-import javax.inject.Inject
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /**
  * A Gradle plugin that adds an artifact verification task to the project.
  * Validates the metadata of artifacts to be published according to Maven Central requirements
  * and verifies local PGP signatures using Bouncy Castle.
  *
- * The rules themselves live in [MavenCentralMetadataValidator] and [PgpSignatureVerifier], and the
- * report lives in [CheckProjectArtifactTask]. This class only decides, at configuration time, what
- * that task will be given.
- *
- * Everything is handed over through `Provider`s, which resolve once configuration is finished.
- * That is what keeps `Project` out of the task: with the configuration cache on, a task action
- * holding one is refused outright. What genuinely cannot be known before execution — whether the
- * task behind a file actually produced it — is left to [ProducedOutputsService].
+ * The rules themselves live in [MavenCentralMetadataValidator] and [PgpSignatureVerifier]; this
+ * class only wires them to a Gradle task.
  */
-class ArtifactCheckPluginForProject @Inject constructor(
-    private val listenerRegistry: BuildEventsListenerRegistry
-) : Plugin<Project> {
+class ArtifactCheckPluginForProject : Plugin<Project> {
 
     override fun apply(project: Project) {
-        val producedOutputsService = project.gradle.sharedServices.registerIfAbsent(
-            ProducedOutputsService.NAME,
-            ProducedOutputsService::class.java
-        ) {}
-        // Subscribing is what makes the service receive anything; registering it alone does not.
-        listenerRegistry.onTaskCompletion(producedOutputsService)
-
-        project.tasks.register(TASK_NAME, CheckProjectArtifactTask::class.java) {
+        project.tasks.register(TASK_NAME) {
             group = LifecycleBasePlugin.VERIFICATION_GROUP
             description =
                 "Verifies that all artifacts staged for publishing are signed and meet Maven Central requirements."
 
+            // Declaring the incompatibility rather than leaving the build to hit it. Without this,
+            // `--configuration-cache` fails outright with "cannot serialize object of type
+            // DefaultProject", and the task cannot be run at all; with it, Gradle turns the cache
+            // off for the build, says which task did it, and runs.
+            //
+            // The report below dereferences `Project` at execution time, and the part that cannot
+            // be lifted out is the freshness test: whether a signature, a POM or a module.json
+            // belongs to *this* build is answered by the producing task's
+            // `state.didWork || state.upToDate`, and task state does not exist before execution.
+            //
+            // Two ways of computing it ahead of time were tried and rejected, both reviewed:
+            //
+            //   - deciding from the task graph (`enabled`, not excluded by `-x`, plus the signing
+            //     plugin's own `isRequired || signatory != null`) cannot see `onlyIf`. A predicate
+            //     the build added to a `Sign` task, and the one Gradle itself puts on
+            //     GenerateModuleMetadata for publications with no component, both leave a task
+            //     enabled while it produces nothing -- so stale `.asc` files would have been
+            //     reported as verified. Fail-open, which is the failure this task exists to remove.
+            //
+            //   - a BuildService subscribed to task completion events sees the outcome exactly,
+            //     but `BuildEventsListenerRegistry` delivers asynchronously: events are queued and
+            //     drained on their own thread, and `dependsOn` orders execution, not delivery. A
+            //     correctly signed build could intermittently report "No PGP signatures were
+            //     produced". Fail-closed, but flaky.
+            //
+            // Accuracy wins. Tracked in
+            // https://github.com/YongGoose/Maven-Central-utility-plugins-for-Gradle/issues/43.
+            notCompatibleWithConfigurationCache(
+                "Decides whether a signature, POM or module.json belongs to this build from its " +
+                    "producing task's outcome, which does not exist before execution."
+            )
+
             // The signatures, the POM and the module metadata only exist on disk once their
-            // producing tasks have run. Depending on them is also what puts their completion
-            // events ahead of this task's own execution.
+            // producing tasks have run.
             //
             // This depends on Sign unconditionally. An earlier revision gated it on
             // `signing.signatory != null` so that a contributor without keys still got the
@@ -70,7 +86,7 @@ class ArtifactCheckPluginForProject @Inject constructor(
             // are in the graph, and an artifact that was never built cannot be checked.
             dependsOn(
                 project.provider {
-                    publishingOf(project)
+                    project.extensions.findByType(PublishingExtension::class.java)
                         ?.publications
                         ?.withType(MavenPublication::class.java)
                         ?.flatMap { it.artifacts }
@@ -78,25 +94,42 @@ class ArtifactCheckPluginForProject @Inject constructor(
                 }
             )
 
-            usesService(producedOutputsService)
-            producedOutputs.set(producedOutputsService)
+            doLast {
+                val pom = resolveMergedDefaults(project)
+                    ?: throw IllegalStateException(
+                        "No merged POM metadata found for '${project.path}'. Apply " +
+                            "'io.github.yonggoose.maven.central.utility.plugin.project' to this project " +
+                            "and configure 'rootProjectPom' / 'projectPom'."
+                    )
 
-            projectPath.set(project.path)
-            mergedDefaults.set(project.provider { resolveMergedDefaults(project) })
-            publishingApplied.set(project.provider { publishingOf(project) != null })
-            signingApplied.set(project.provider { signingOf(project) != null })
-            signingRequired.set(project.provider { signingOf(project)?.isRequired ?: false })
-            publicationCount.set(project.provider { publishingOf(project)?.publications?.size ?: 0 })
-            publications.set(project.provider { publicationArtifacts(project) })
-            signaturePlans.set(project.provider { signaturePlans(project) })
+                val errors = mutableListOf<String>()
+
+                errors.addAll(MavenCentralMetadataValidator.validate(pom))
+                val signatureCheck = validatePgpSignatures(project, errors)
+
+                if (errors.isNotEmpty()) {
+                    throw IllegalArgumentException("Validation failed:\n${errors.joinToString("\n")}")
+                }
+
+                // Report exactly how much was checked. Claiming more is the same fail-open
+                // reporting this task exists to remove.
+                project.logger.lifecycle(
+                    when (signatureCheck) {
+                        SignatureCheck.VERIFIED ->
+                            "✅ ArtifactCheckPlugin: metadata and PGP signatures verified successfully."
+                        SignatureCheck.PARTIAL ->
+                            "✅ ArtifactCheckPlugin: metadata validation passed and the PGP signatures " +
+                                "that exist were verified. Some files are unsigned (see the warnings " +
+                                "above); signing is not required, so they were not treated as errors."
+                        SignatureCheck.SKIPPED ->
+                            "✅ ArtifactCheckPlugin: metadata validation passed. PGP signature " +
+                                "verification was SKIPPED (see the warnings above) — this run does not " +
+                                "confirm the artifacts are signed."
+                    }
+                )
+            }
         }
     }
-
-    private fun publishingOf(project: Project): PublishingExtension? =
-        project.extensions.findByType(PublishingExtension::class.java)
-
-    private fun signingOf(project: Project): SigningExtension? =
-        project.extensions.findByType(SigningExtension::class.java)
 
     /**
      * Resolves the merged POM metadata for [project], and only for [project].
@@ -130,31 +163,95 @@ class ArtifactCheckPluginForProject @Inject constructor(
     }
 
     /**
-     * The files of every Maven publication, paired with the task that has to have produced each.
+     * Reports how much of the signature check ran, so the caller never claims a verification that
+     * did not happen.
      *
-     * Nothing is filtered here. Whether the POM and the module metadata belong to this build is a
-     * question about task outcomes, which only exist during execution — the task asks
-     * [ProducedOutputsService] and checks the files then.
+     * A signature that is present but broken is always an error. A signature that is *absent* is
+     * an error only when `signing.isRequired`: a build that opted out of required signing has not
+     * asked for every file to be signed, and failing it would defeat the opt-out.
      */
-    private fun publicationArtifacts(project: Project): List<PublicationArtifacts> {
-        val publishing = publishingOf(project) ?: return emptyList()
+    private fun validatePgpSignatures(project: Project, errors: MutableList<String>): SignatureCheck {
+        val publishing = project.extensions.findByType(PublishingExtension::class.java)
+        val signing = project.extensions.findByType(SigningExtension::class.java)
 
-        return publishing.publications.withType(MavenPublication::class.java).map { publication ->
-            val pomTask = project.tasks.withType(GenerateMavenPom::class.java)
-                .findByName(pomTaskNameFor(publication))
-            val moduleTask = project.tasks.withType(GenerateModuleMetadata::class.java)
-                .findByName("generateMetadataFileFor${capitalize(publication.name)}Publication")
-
-            PublicationArtifacts(
-                name = publication.name,
-                artifacts = publication.artifacts.map { it.file },
-                pomTaskName = pomTaskNameFor(publication),
-                pomTaskPath = pomTask?.path,
-                pomFile = pomTask?.destination,
-                moduleTaskPath = moduleTask?.path,
-                moduleMetadataFile = moduleTask?.outputFile?.orNull?.asFile
-            )
+        if (publishing == null) {
+            errors.add("'maven-publish' plugin not found. PGP signature verification cannot be performed.")
+            return SignatureCheck.SKIPPED
         }
+        // Before the `signing` check: a module with no publications is not publishing anything,
+        // so demanding the signing plugin of it would be a compliance failure for a project that
+        // has nothing to comply about. `maven-publish` arriving from a convention plugin while
+        // the module declares no publication is a common shape.
+        if (publishing.publications.isEmpty()) {
+            project.logger.warn(
+                "No publications found in 'publishing' extension. Skipping PGP signature verification."
+            )
+            return SignatureCheck.SKIPPED
+        }
+
+        if (signing == null) {
+            // This is a failure, not a skip: Maven Central will not accept unsigned artifacts.
+            errors.add("'signing' plugin not applied. Maven Central requires every published file to be signed.")
+            return SignatureCheck.SKIPPED
+        }
+
+        val signatures = collectSignatures(project, signing)
+        if (signatures.values.none { it.exists() }) {
+            if (!signing.isRequired) {
+                project.logger.warn(
+                    "Signing is not required and nothing was signed. Skipping PGP signature verification."
+                )
+                return SignatureCheck.SKIPPED
+            }
+            errors.add("No PGP signatures were produced. Ensure the publications are configured for signing.")
+            return SignatureCheck.SKIPPED
+        }
+        project.logger.info("Found ${signatures.size} signature(s) for ${signatures.keys.map { it.name }.sorted()}")
+
+        val context = SignatureCheckContext(project, signatures, signing.isRequired, errors)
+        publishing.publications.withType(MavenPublication::class.java).forEach { publication ->
+            validateMavenPublicationSignatures(context, publication)
+        }
+
+        if (context.inspected == 0) {
+            // `publications` can be non-empty while holding no MavenPublication at all -- an
+            // Ivy-only build, say. Claiming the signatures passed here would be the same
+            // fail-open reporting this task exists to remove.
+            project.logger.warn(
+                "No Maven publication files were inspected. Skipping PGP signature verification."
+            )
+            return SignatureCheck.SKIPPED
+        }
+        // Counted separately from verified/unsigned: files can also be inspected and rejected,
+        // and inferring "nothing was inspected" from those two would contradict the errors.
+        if (context.verified == 0) {
+            return SignatureCheck.SKIPPED
+        }
+        return if (context.unsigned == 0) SignatureCheck.VERIFIED else SignatureCheck.PARTIAL
+    }
+
+    /** How much of the signature check actually happened, so the task can report it truthfully. */
+    private enum class SignatureCheck { VERIFIED, PARTIAL, SKIPPED }
+
+    /**
+     * Everything the per-file signature check needs, plus its running tally. Carrying it as one
+     * object keeps the call sites readable -- threading five invariant arguments through every
+     * file was worse.
+     */
+    private class SignatureCheckContext(
+        val project: Project,
+        val signatures: Map<File, File>,
+        val signingRequired: Boolean,
+        val errors: MutableList<String>
+    ) {
+        /** Files this check looked at, whatever the verdict. */
+        var inspected: Int = 0
+
+        /** Files whose signature was found and parsed. */
+        var verified: Int = 0
+
+        /** Files with no signature, tolerated because signing is not required. */
+        var unsigned: Int = 0
     }
 
     /**
@@ -170,40 +267,180 @@ class ArtifactCheckPluginForProject @Inject constructor(
      * registered through `sign(Task)` / `sign(Configuration)`; `sign(publishing.publications)` —
      * the setup Maven Central publishers actually use — attaches them to the publication and
      * leaves that configuration empty.
+     *
+     * Signatures whose `Sign` task did not run in this build are left out, for the same reason
+     * [findModuleMetadataFile] keys off the task's outcome: the `Signature` objects exist whether
+     * or not anything signed, so `file.exists()` on its own would let a stale `.asc` in a dirty
+     * `build/` stand in for a signature this build never produced. That is not a corner case — it
+     * is exactly what `-x signMavenPublication`, and `setRequired(false)` on a keyless machine,
+     * leave behind, and both would otherwise turn a SKIPPED report into VERIFIED while the
+     * artifacts were rebuilt underneath the old signature.
      */
-    private fun signaturePlans(project: Project): List<SignaturePlan> {
-        val signing = signingOf(project) ?: return emptyList()
-        val plans = LinkedHashMap<File, SignaturePlan>()
+    private fun collectSignatures(project: Project, signing: SigningExtension): Map<File, File> {
+        val bySignedFile = LinkedHashMap<File, File>()
 
-        fun record(signature: Signature, producedBy: String?) {
+        fun record(signature: Signature) {
             val signed = signature.toSign ?: return
-            // Kept despite the compiler calling the elvis redundant: `Signature.getFile()` is
-            // derived from `toSign` and the signature type, and a Signature that cannot name its
-            // own file has nothing to contribute. Without this the map below takes a null and the
-            // build dies during configuration, before any report is printed.
-            val signatureFile: File = signature.file ?: return
-            plans[signed.absoluteFile] = SignaturePlan(signed.absoluteFile, signatureFile, producedBy)
+            val signatureFile = signature.file ?: return
+            bySignedFile[signed.absoluteFile] = signatureFile
         }
 
+        // Identity, not equality: two signatures over different files can compare equal by name,
+        // and all this set has to answer is "did some Sign task already account for this object".
+        val ownedByTask: MutableSet<Signature> = Collections.newSetFromMap(IdentityHashMap())
         project.tasks.withType(Sign::class.java).forEach { task ->
-            task.signatures.forEach { record(it, task.path) }
+            ownedByTask.addAll(task.signatures)
+            if (task.producedSignatures()) {
+                task.signatures.forEach(::record)
+            }
         }
 
         // Whatever is left in the configuration has no Sign task to judge it by; take it as is.
-        // `containsKey` rather than an identity set over the Signature objects: two signatures can
-        // compare equal by name, and the question here is only whether some Sign task already
-        // claimed this signed file.
         signing.configuration.artifacts
             .filterIsInstance<Signature>()
-            .forEach { signature ->
-                val signed = signature.toSign?.absoluteFile
-                if (signed != null && !plans.containsKey(signed)) {
-                    record(signature, null)
-                }
+            .filterNot { it in ownedByTask }
+            .forEach(::record)
+
+        return bySignedFile
+    }
+
+    /**
+     * Whether [this] task's signature files come from this build.
+     *
+     * `checkProjectArtifact` depends on every `Sign` task, so by the time this runs each one has a
+     * final state: it either did work or was up to date — the signatures on disk are current
+     * either way — or it did neither, having been skipped by its `onlyIf`, disabled, or excluded
+     * with `-x` (an excluded task is never executed at all, so `didWork` and `upToDate` are both
+     * false and it is correctly rejected).
+     */
+    private fun Sign.producedSignatures(): Boolean = state.didWork || state.upToDate
+
+    private fun validateMavenPublicationSignatures(
+        context: SignatureCheckContext,
+        publication: MavenPublication
+    ) {
+        context.project.logger.info("Validating PGP signatures for publication: ${publication.name}")
+
+        publication.artifacts.forEach { artifact ->
+            verifyFileSignature(context, publication, artifact.file, "artifact")
+        }
+
+        // Gradle Module Metadata is published and signed alongside the POM, so a missing
+        // module.json signature is rejected at upload just like a missing POM signature.
+        val moduleFile = findModuleMetadataFile(context.project, publication)
+        if (moduleFile != null) {
+            verifyFileSignature(context, publication, moduleFile, "module metadata")
+        }
+
+        val pomFile = findPomFile(context.project, publication)
+        if (pomFile == null) {
+            // Not "run the task first": this task depends on every GenerateMavenPom, so the only
+            // way to get here is a POM task that was disabled or excluded from this build. Telling
+            // the user to run what they just opted out of would send them in a circle.
+            context.errors.add(
+                "No POM was generated for publication '${publication.name}', so its signature " +
+                    "could not be verified. '${pomTaskNameFor(publication)}' was disabled or " +
+                    "excluded from this build; Maven Central requires a POM for every artifact."
+            )
+            return
+        }
+
+        verifyFileSignature(context, publication, pomFile, "POM")
+    }
+
+    private fun verifyFileSignature(
+        context: SignatureCheckContext,
+        publication: MavenPublication,
+        file: File,
+        kind: String
+    ) {
+        // Every publication writes its POM to build/publications/<name>/pom-default.xml, so the
+        // file name alone cannot tell two publications apart in a report. Name both.
+        val subject = "$kind of publication '${publication.name}' at '${file.path}'"
+        context.inspected++
+
+        if (!file.exists()) {
+            // A safety net rather than an expected path: the task depends on the publication's
+            // artifacts, so they should already exist by the time this runs.
+            context.errors.add("$subject has not been built, so its signature could not be checked.")
+            return
+        }
+
+        val signatureFile = context.signatures[file.absoluteFile]
+
+        if (signatureFile == null || !signatureFile.exists()) {
+            val problem = if (signatureFile == null) {
+                // Lead with the cause that is actually common. `sign(configurations["archives"])`
+                // covers the jar but not the POM or module.json, and those two land here with
+                // signing still required. The stale-output case -- a build/ directory left over
+                // from when this publication still carried module metadata -- is second, and
+                // deliberately so: './gradlew clean' would delete a POM this build just generated.
+                "No PGP signature is registered for $subject. Check that the project's " +
+                    "'signing { sign(...) }' covers this file -- 'sign(publishing.publications)' " +
+                    "covers a publication's artifacts, its POM and its module metadata. If instead " +
+                    "the file is left over from an earlier publication layout and nothing publishes " +
+                    "it any more, './gradlew clean' removes it."
+            } else {
+                "The PGP signature for $subject was never produced (expected it at '${signatureFile.path}')."
             }
 
-        return plans.values.toList()
+            if (context.signingRequired) {
+                context.errors.add("$problem Maven Central requires every published file to be signed.")
+            } else {
+                // `setRequired(false)` opted out of signing everything, so an absent signature is
+                // the user's choice. A *broken* one below still fails: that is never intentional.
+                context.project.logger.warn("$problem Signing is not required, so this is not an error.")
+                context.unsigned++
+            }
+            return
+        }
+
+        val result = PgpSignatureVerifier.verify(file, signatureFile)
+        if (result.isOk) {
+            context.project.logger.info("PGP signature verified for $kind ${file.name}. ${result.detail}")
+            context.verified++
+        } else {
+            // A broken signature fails regardless of `isRequired`: nobody opts into those.
+            context.errors.add("PGP signature verification FAILED for $subject: ${result.detail}")
+        }
     }
+
+    /**
+     * The generated Gradle Module Metadata for [publication], or `null` when there is none to
+     * check.
+     *
+     * Decided by the task's outcome, not by the file. `checkProjectArtifact` depends on
+     * `GenerateModuleMetadata`, so by the time this runs the task has a final state: it either
+     * did work or was up to date (the metadata is part of the publication), or it was skipped —
+     * by `enabled = false`, or by the `onlyIf` Gradle uses for publications that cannot carry
+     * module metadata. Keying off `file.exists()` alone would demand a signature for a stale
+     * `module.json` left in `build/` by an earlier publication layout.
+     */
+    private fun findModuleMetadataFile(project: Project, publication: MavenPublication): File? {
+        val taskName = "generateMetadataFileFor${capitalize(publication.name)}Publication"
+        val task = project.tasks.withType(GenerateModuleMetadata::class.java)
+            .findByName(taskName)
+            ?.takeIf { it.state.didWork || it.state.upToDate }
+            ?: return null
+        return task.outputFile.orNull?.asFile?.takeIf { it.exists() }
+    }
+
+    /**
+     * The generated POM for [publication], or `null` when this build did not generate one.
+     *
+     * Decided by the task's outcome for the same reason as [findModuleMetadataFile]: a
+     * `GenerateMavenPom` that was disabled or excluded leaves its `destination` pointing at
+     * whatever an earlier build wrote there, and validating a stale POM — or demanding a signature
+     * for one this build will not publish — is worse than reporting that none was generated. There
+     * is no fallback to the conventional `build/publications/<name>/pom-default.xml` path either,
+     * for the same reason.
+     */
+    private fun findPomFile(project: Project, publication: MavenPublication): File? =
+        project.tasks.withType(GenerateMavenPom::class.java)
+            .findByName(pomTaskNameFor(publication))
+            ?.takeIf { it.state.didWork || it.state.upToDate }
+            ?.destination
+            ?.takeIf { it.exists() }
 
     private fun pomTaskNameFor(publication: MavenPublication): String =
         "$GENERATE_POM_TASK_PREFIX${capitalize(publication.name)}Publication"
