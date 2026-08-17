@@ -22,7 +22,7 @@ import java.util.IdentityHashMap
  * The rules themselves live in [MavenCentralMetadataValidator] and [PgpSignatureVerifier]; this
  * class only wires them to a Gradle task.
  */
-class ArtifactCheckPluginForProject : Plugin<Project> {
+class ArtifactCheckPlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
         project.extensions.create(EXTENSION_NAME, ArtifactCheckExtension::class.java)
@@ -169,7 +169,7 @@ class ArtifactCheckPluginForProject : Plugin<Project> {
      */
     private fun resolveMergedDefaults(project: Project): OrganizationDefaults? {
         val extras = project.extensions.extraProperties
-        val key = OrganizationDefaultsProjectPlugin.MERGED_DEFAULTS_PROPERTY
+        val key = PomDefaultsProjectPlugin.MERGED_DEFAULTS_PROPERTY
 
         if (!extras.has(key)) {
             return null

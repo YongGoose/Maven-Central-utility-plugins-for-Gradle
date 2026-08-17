@@ -40,7 +40,7 @@ gradlePlugin {
             displayName = "Organization Defaults Project Plugin"
             description = "A Gradle plugin to apply organization-wide defaults to projects."
             tags = setOf("organization", "defaults")
-            implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsProjectPlugin"
+            implementationClass = "io.github.yonggoose.organizationdefaults.PomDefaultsProjectPlugin"
         }
 
         create("organizationDefaultsSetting") {
@@ -48,7 +48,7 @@ gradlePlugin {
             displayName = "Organization Defaults Settings Plugin"
             description = "A Gradle plugin to apply organization-wide defaults to settings."
             tags = setOf("organization", "defaults", "settings")
-            implementationClass = "io.github.yonggoose.organizationdefaults.OrganizationDefaultsSettingsPlugin"
+            implementationClass = "io.github.yonggoose.organizationdefaults.PomDefaultsSettingsPlugin"
         }
 
         create("artifactCheckProject") {
@@ -56,7 +56,7 @@ gradlePlugin {
             displayName = "Artifact Check Project Plugin"
             description = "A Gradle plugin to check artifacts against organization defaults."
             tags = setOf("organization", "defaults", "artifact", "check")
-            implementationClass = "io.github.yonggoose.organizationdefaults.ArtifactCheckPluginForProject"
+            implementationClass = "io.github.yonggoose.organizationdefaults.ArtifactCheckPlugin"
         }
     }
 }

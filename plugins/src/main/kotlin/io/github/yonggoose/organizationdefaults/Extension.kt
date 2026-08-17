@@ -8,17 +8,17 @@ import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
 
 /**
- * Extension for specifying organization-wide default metadata for Gradle projects.
+ * Extension for specifying build-wide default POM metadata.
  *
- * Registered as `rootProjectSetting` by [OrganizationDefaultsSettingsPlugin]. The DSL itself
- * lives in [AbstractPomMetadataExtension].
+ * Registered as `rootProjectSetting` by [PomDefaultsSettingsPlugin]. The DSL itself
+ * lives in [AbstractPomMetadataExtension], shared with [PomDefaultsExtension].
  */
-open class OrganizationDefaultsExtension : AbstractPomMetadataExtension()
+open class PomDefaultsSettingsExtension : AbstractPomMetadataExtension()
 
 /**
- * Parameters for the OrganizationDefaults build service.
+ * Parameters for the [PomDefaultsService] build service.
  */
-interface OrganizationDefaultsParameters : BuildServiceParameters {
+interface PomDefaultsParameters : BuildServiceParameters {
     val groupId: Property<String>
     val artifactId: Property<String>
     val version: Property<String>
@@ -44,9 +44,9 @@ interface OrganizationDefaultsParameters : BuildServiceParameters {
 /**
  * Build service that provides organization default metadata to Gradle builds.
  */
-abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsParameters> {
-    fun getDefaults(): OrganizationDefaultsExtension {
-        return OrganizationDefaultsExtension().apply {
+abstract class PomDefaultsService : BuildService<PomDefaultsParameters> {
+    fun getDefaults(): PomDefaultsSettingsExtension {
+        return PomDefaultsSettingsExtension().apply {
             groupId = parameters.groupId.orNull
             artifactId = parameters.artifactId.orNull
             version = parameters.version.orNull
@@ -134,17 +134,17 @@ abstract class OrganizationDefaultsService : BuildService<OrganizationDefaultsPa
  * Gradle settings plugin for registering and configuring organization default metadata.
  *
  * A settings extension cannot be reached from a [org.gradle.api.Project], so what
- * `rootProjectSetting { }` configures is handed to [OrganizationDefaultsProjectPlugin] through the
+ * `rootProjectSetting { }` configures is handed to [PomDefaultsProjectPlugin] through the
  * shared build service registered here. That plugin is the only consumer; without it applied to a
  * project, configuring `rootProjectSetting` has no effect on that project's `mergedDefaults`.
  */
-class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
+class PomDefaultsSettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
-        val ext = settings.extensions.create(EXTENSION_NAME, OrganizationDefaultsExtension::class.java)
+        val ext = settings.extensions.create(EXTENSION_NAME, PomDefaultsSettingsExtension::class.java)
 
         settings.gradle.sharedServices.registerIfAbsent(
             SERVICE_NAME,
-            OrganizationDefaultsService::class.java
+            PomDefaultsService::class.java
         ) {
             // A `provider {}` lambda that returns null leaves the property unset, which keeps
             // "never configured" distinguishable from "configured to an empty string".
@@ -172,7 +172,7 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
         const val EXTENSION_NAME: String = "rootProjectSetting"
 
         /**
-         * Name of the build service [OrganizationDefaultsProjectPlugin] looks up.
+         * Name of the build service [PomDefaultsProjectPlugin] looks up.
          *
          * Build service names share one namespace across the whole build tree, so this is
          * qualified rather than reusing [EXTENSION_NAME]: an unqualified `rootProjectSetting` is
@@ -182,3 +182,32 @@ class OrganizationDefaultsSettingsPlugin : Plugin<Settings> {
         const val SERVICE_NAME: String = "io.github.yonggoose.organizationdefaults.rootProjectSetting"
     }
 }
+
+/*
+ * The old names, kept so that a build that spelled one out gets a warning naming its replacement
+ * rather than an unresolved reference. Due for removal in 0.2.0, alongside the two renames this
+ * change deliberately left alone -- `OrganizationDefaults` itself and the package -- which are the
+ * ones every documented integration copies.
+ *
+ * The plugin classes need no alias: they are reached through their ids, and `implementationClass`
+ * is the only place their names are written.
+ */
+
+@Deprecated(
+    "Renamed to PomDefaultsSettingsExtension, to pair with PomDefaultsExtension and with the " +
+        "plugin that registers it. Will be removed in 0.2.0.",
+    ReplaceWith("PomDefaultsSettingsExtension")
+)
+typealias OrganizationDefaultsExtension = PomDefaultsSettingsExtension
+
+@Deprecated(
+    "Renamed to PomDefaultsParameters. Will be removed in 0.2.0.",
+    ReplaceWith("PomDefaultsParameters")
+)
+typealias OrganizationDefaultsParameters = PomDefaultsParameters
+
+@Deprecated(
+    "Renamed to PomDefaultsService. Will be removed in 0.2.0.",
+    ReplaceWith("PomDefaultsService")
+)
+typealias OrganizationDefaultsService = PomDefaultsService
