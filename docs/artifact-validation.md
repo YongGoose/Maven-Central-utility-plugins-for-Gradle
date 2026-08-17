@@ -25,6 +25,11 @@ silently fall back to another project's metadata.
 ./gradlew checkProjectArtifact
 ```
 
+The task is **configuration-cache compatible**: it resolves the metadata, the publications and the
+signature pairings while the build is being configured, and holds no reference to `Project` at
+execution time. `./gradlew checkProjectArtifact --configuration-cache` stores an entry and the
+next run reuses it.
+
 The task depends on the tasks that produce what it inspects — the publication's artifacts, its
 `GenerateMavenPom` and `GenerateModuleMetadata` tasks, and its `Sign` tasks — so there is no need
 to chain it after `publish` manually. On a machine without a usable signing key that means signing
@@ -89,12 +94,21 @@ Each file is paired with its signature using the mapping **Gradle itself records
   signature, or one publication's `pom-default.xml.asc` standing in for another's — are impossible
   by construction rather than guarded against.
 
-Only signatures **this build produced** count. A `Sign` task that did not run — skipped by its
-`onlyIf`, disabled, or excluded with `-x signMavenPublication` — contributes nothing, even when an
-`.asc` file from an earlier run is still sitting in `build/`. Otherwise a dirty `build/` directory
-would report `PGP signatures verified successfully` for artifacts that were just rebuilt
-underneath a stale signature, which is the fail-open reporting this task exists to remove. The
-generated POM and module metadata are decided the same way, by their producing task's outcome.
+Only signatures **this build will produce** count. A `Sign` task that is not going to run —
+disabled, excluded with `-x signMavenPublication`, or skipped by the rule Gradle's own signing
+plugin applies (`isRequired || signatory != null`) — contributes nothing, even when an `.asc` file
+from an earlier run is still sitting in `build/`. Otherwise a dirty `build/` directory would
+report `PGP signatures verified successfully` for artifacts that were just rebuilt underneath a
+stale signature, which is the fail-open reporting this task exists to remove. The generated POM
+and module metadata are decided the same way, by whether their producing task is part of the
+build.
+
+That question is answered from the task graph, before anything executes, which is what lets the
+task run under the configuration cache. Two narrow cases fall outside it: a **custom `onlyIf`**
+added to a `Sign` task by the build, and `-x` given as a **camel-case abbreviation**
+(`-x sMP`). In both the task is treated as though it will sign, so an absent signature is
+reported as absent rather than passed over — the failure direction is towards checking, never
+towards a silent pass.
 
 The flip side is that **signatures the Gradle `signing` plugin did not create are invisible**. If
 you sign artifacts with an external tool and drop the files into `build/`, `checkProjectArtifact`
