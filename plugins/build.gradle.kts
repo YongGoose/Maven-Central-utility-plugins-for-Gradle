@@ -8,8 +8,8 @@ plugins {
 dependencies {
     implementation(gradleApi())
     implementation(gradleKotlinDsl())
-    implementation("org.bouncycastle:bcpg-jdk18on:1.85")
-    implementation("org.bouncycastle:bcprov-jdk18on:1.85")
+    implementation("org.bouncycastle:bcpg-jdk18on:1.85.2")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.85.2")
 
     // Unit tests for the validation rules; the TestKit integration tests live in :testing.
     testImplementation(kotlin("test"))
