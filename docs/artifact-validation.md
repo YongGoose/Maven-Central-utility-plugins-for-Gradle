@@ -110,12 +110,18 @@ A key ring that is configured but unreadable, or missing from disk, **fails the 
 not fall back to the structural check — configuring verification and silently getting none is the
 outcome this task exists to prevent.
 
-With no key configured the check is structural only, as before, and says so on every run:
+With no key configured the check is structural only, as before, and the **verdict itself** says so
+rather than reading `verified successfully`:
 
 ```
-No public key is configured, so signatures are checked for structure only — this run does not
-confirm they were made over these files.
+✅ ArtifactCheckPlugin: metadata validation passed and every PGP signature parsed, but no public
+   key is configured — this run does not confirm they were made over these files.
 ```
+
+That wording matters for the CI recipe above. If `SIGNING_PUBLIC_KEY` is not set — a fork build, a
+renamed secret, a typo — the provider simply has no value, which the plugin cannot tell apart from
+never having configured a key at all. The verdict line is what makes the difference visible. A
+secret that expands to an **empty** string *is* distinguishable, and fails the build.
 
 Each file is paired with its signature using the mapping **Gradle itself records**
 (`Signature.toSign`), not by deriving a name or a path. Two things follow:

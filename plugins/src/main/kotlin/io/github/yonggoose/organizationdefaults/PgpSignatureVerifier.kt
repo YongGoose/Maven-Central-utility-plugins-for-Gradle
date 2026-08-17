@@ -50,6 +50,27 @@ class PgpPublicKeys private constructor(
 
     companion object {
         /**
+         * The same, from a file.
+         *
+         * Reading it belongs here rather than at the call site: a `publicKeyRing` pointed at a
+         * directory, or at a file the build cannot open, would otherwise throw a bare
+         * `FileNotFoundException` past the message written for exactly that case.
+         */
+        fun load(file: File): PgpPublicKeys {
+            val origin = "'${file.path}'"
+            val bytes = try {
+                file.readBytes()
+            } catch (e: Exception) {
+                throw IllegalArgumentException(
+                    "Could not read a PGP public key ring from $origin: " +
+                        "${e.javaClass.simpleName}: ${e.message}",
+                    e
+                )
+            }
+            return load(bytes, origin)
+        }
+
+        /**
          * Reads an armored or binary public key ring out of [source].
          *
          * Throws rather than returning null: a build that configured a key and got an unreadable
@@ -148,15 +169,18 @@ object PgpSignatureVerifier {
         artifactFile: File,
         signature: PGPSignature,
         publicKeys: PgpPublicKeys
-    ): SignatureVerification {
-        val key = publicKeys.findKey(signature.keyID)
-            ?: return SignatureVerification.failed(
-                "${artifactFile.name} is signed with key ${keyId(signature)}, which is not in " +
-                    "${publicKeys.origin}. Either the wrong key signed it, or the configured key " +
-                    "ring is missing that key."
-            )
+    ): SignatureVerification =
+        // The key lookup is inside the try, not before it: getPublicKey declares PGPException, so
+        // a ring holding one entry BouncyCastle chokes on would otherwise escape the task action
+        // entirely instead of joining the other per-file verdicts.
+        try {
+            val key = publicKeys.findKey(signature.keyID)
+                ?: return SignatureVerification.failed(
+                    "${artifactFile.name} is signed with key ${keyId(signature)}, which is not in " +
+                        "${publicKeys.origin}. Either the wrong key signed it, or the configured " +
+                        "key ring is missing that key."
+                )
 
-        return try {
             signature.init(
                 JcaPGPContentVerifierBuilderProvider().setProvider(BouncyCastleProvider.PROVIDER_NAME),
                 key
@@ -196,7 +220,6 @@ object PgpSignatureVerifier {
                     "${e.javaClass.simpleName}: ${e.message}"
             )
         }
-    }
 
     /**
      * The signature in [signatureFile], or why there is none.
