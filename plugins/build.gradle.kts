@@ -12,7 +12,7 @@ dependencies {
     // only, and there is no bcpg-jdk18on:1.85.2 to move up to. bcpg 1.85 is built against the
     // 1.85 provider and takes the patch release fine.
     implementation("org.bouncycastle:bcpg-jdk18on:1.85")
-    implementation("org.bouncycastle:bcprov-jdk18on:1.85.2")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.86")
 
     // Unit tests for the validation rules; the TestKit integration tests live in :testing.
     testImplementation(kotlin("test"))
